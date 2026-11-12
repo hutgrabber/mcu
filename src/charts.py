@@ -1,4 +1,4 @@
-import json
+import json, pathlib
 def N(k,c,r,e=None,n=None,span=1,t=None,s=None,future=False,color=None):
     d=dict(k=k,c=c,r=r,n=n,span=span)
     if e is not None: d['e']=e
@@ -160,5 +160,5 @@ data=dict(phases=phases,routes=routes,soon=soon,share=share_order,story=dict(ids
   main=[dict(key='phases',chip='The Phases at a glance',title='The six Phases at a glance',type='ribbon',intro="Width shows how many films each Phase has. Tap a Phase to jump to it on the main line."),stones,storyc],
   spider=[spider],sony=[sony],shows=[wanda,street,loki],xmen=[xmen],ff=[ff]))
 assert len(story_ids)==len(story_labels)==40 and sorted(story_ids)==list(range(40))
-json.dump(data,open('charts.json','w'),ensure_ascii=False)
+json.dump(data,open(pathlib.Path(__file__).resolve().parent/'charts.json','w'),ensure_ascii=False)
 print('ok')

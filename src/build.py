@@ -1,12 +1,12 @@
-import json, shutil
-W='/home/claude/web/'; OUT='/home/claude/site/'
-t=open(W+'template3.html').read()
-d=open(W+'data3.json').read().replace('</','<\\/')
-c=open(W+'charts.json').read().replace('</','<\\/')
+"""Builds the published page: src/template.html + src/data.json + src/charts.json -> index.html, and writes w/index.html.
+Run from anywhere: python3 src/build.py. With --check it writes nothing and fails if the committed files are out of date."""
+import pathlib, sys
+SRC=pathlib.Path(__file__).resolve().parent; ROOT=SRC.parent
+t=(SRC/'template.html').read_text()
+d=(SRC/'data.json').read_text().replace('</','<\\/')
+c=(SRC/'charts.json').read_text().replace('</','<\\/')
 assert t.count('/*DATA*/')==1 and t.count('/*CHARTS*/')==1
 out=t.replace('/*DATA*/',d).replace('/*CHARTS*/',c)
-open(OUT+'index.html','w').write(out)
-open('/home/claude/hut-mcu-helper.html','w').write(out)
 stub='''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -52,5 +52,11 @@ a{color:#3CE7FF}
 </body>
 </html>
 '''
-open(OUT+'w/index.html','w').write(stub)
-print(len(out))
+files={ROOT/'index.html': out, ROOT/'w'/'index.html': stub}
+if '--check' in sys.argv:
+    stale=[str(p.relative_to(ROOT)) for p,text in files.items() if not p.exists() or p.read_text()!=text]
+    if stale: sys.exit('Out of date, run python3 src/build.py: '+', '.join(stale))
+    print('Up to date')
+else:
+    for p,text in files.items(): p.parent.mkdir(exist_ok=True); p.write_text(text)
+    print(len(out))
