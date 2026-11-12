@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hut's mcu helper//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:20280505-x-men@mcu.hutlab.dev
+DTSTAMP:20280505T000000Z
+DTSTART;VALUE=DATE:20280505
+DTEND;VALUE=DATE:20280506
+SUMMARY:X-Men opens in cinemas
+DESCRIPTION:Marvel Studios' first X-Men film\, with a new cast for the main
+  universe. Jake Schreier directs. Release dates can move. https://mcu.hutl
+ ab.dev/#soon
+URL:https://mcu.hutlab.dev/#soon
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

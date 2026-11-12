@@ -1,0 +1,17 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hut's mcu helper//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:20281215-black-panther-3@mcu.hutlab.dev
+DTSTAMP:20281215T000000Z
+DTSTART;VALUE=DATE:20281215
+DTEND;VALUE=DATE:20281216
+SUMMARY:Black Panther 3 opens in cinemas
+DESCRIPTION:Ryan Coogler returns to direct. Release dates can move. https:/
+ /mcu.hutlab.dev/#soon
+URL:https://mcu.hutlab.dev/#soon
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,17 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hut's mcu helper//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:20270618-spider-man-beyond-the-spider-verse@mcu.hutlab.dev
+DTSTAMP:20270618T000000Z
+DTSTART;VALUE=DATE:20270618
+DTEND;VALUE=DATE:20270619
+SUMMARY:Spider-Man: Beyond the Spider-Verse opens in cinemas
+DESCRIPTION:The end of Miles Morales's animated trilogy\, from Sony. Releas
+ e dates can move. https://mcu.hutlab.dev/#soon
+URL:https://mcu.hutlab.dev/#soon
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

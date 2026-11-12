@@ -1230,17 +1230,29 @@ CHARTS.soon.forEach(s => {
   $("#soon-list").append(li);
 });
 
-function calendar(s){
+/* Adding a release to a calendar, the way each device does it best:
+   - iPhone and iPad open the release's calendar file, which iOS shows in Calendar's own "Add" sheet. (A file made in the
+     page and "downloaded" does nothing there, so each release has a real file in cal/, written by src/build.py.)
+     iPads describe themselves as Macs, so they are told apart by their touchscreen.
+   - Android phones and tablets, and Chromebooks, open Google Calendar's own new-event screen, filled in.
+   - Other computers download the file for whatever calendar app they use. */
+const UA = navigator.userAgent;
+const onIOS = /iPad|iPhone|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const onGoogle = !onIOS && /Android|CrOS/.test(UA);
+const calSlug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function googleCalendar(s){
   const z = v => String(v).padStart(2, "0"), ymd = d => d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate());
   const start = parse(s.date), end = parse(s.date); end.setDate(end.getDate() + 1);
-  const u = new Date(), stamp = u.getUTCFullYear() + z(u.getUTCMonth() + 1) + z(u.getUTCDate()) + "T" + z(u.getUTCHours()) + z(u.getUTCMinutes()) + z(u.getUTCSeconds()) + "Z";
-  const esc = t => t.replace(/([,;\\])/g, "\\$1"), slug = s.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//hut's mcu helper//EN", "BEGIN:VEVENT", "UID:" + ymd(start) + "-" + slug + "@mcu.hutlab.dev", "DTSTAMP:" + stamp,
-    "DTSTART;VALUE=DATE:" + ymd(start), "DTEND;VALUE=DATE:" + ymd(end), "SUMMARY:" + esc(s.title + (s.kind === "Film" ? " opens in cinemas" : " premieres")),
-    "DESCRIPTION:" + esc(s.note + " Release dates can move."), "URL:https://mcu.hutlab.dev/", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
-  const a = el("a"); a.href = "data:text/calendar;charset=utf-8," + encodeURIComponent(ics); a.download = slug + ".ics";
+  return "https://calendar.google.com/calendar/render?" + new URLSearchParams({action: "TEMPLATE", text: s.title + (s.kind === "Film" ? " opens in cinemas" : " premieres"),
+    dates: ymd(start) + "/" + ymd(end), details: strip(s.note) + " Release dates can move. https://mcu.hutlab.dev/#soon"});
+}
+function calendar(s){
+  const file = "cal/" + calSlug(s.title) + ".ics";
+  if (onIOS){ location.href = file; return; }
+  if (onGoogle){ window.open(googleCalendar(s), "_blank", "noopener"); return; }
+  const a = el("a"); a.href = file; a.download = calSlug(s.title) + ".ics";
   document.body.append(a); a.click(); a.remove();
-  toast("Calendar file for " + s.title + " downloaded");
+  toast("Calendar file for " + s.title + " downloaded. Open it to add the date to your calendar.");
 }
 
 /* ---------- charts ---------- */

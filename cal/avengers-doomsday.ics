@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hut's mcu helper//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:20261218-avengers-doomsday@mcu.hutlab.dev
+DTSTAMP:20261218T000000Z
+DTSTART;VALUE=DATE:20261218
+DTEND;VALUE=DATE:20261219
+SUMMARY:Avengers: Doomsday opens in cinemas
+DESCRIPTION:Doctor Doom against the Avengers\, the Fantastic Four and the X
+ -Men. Tickets are on sale. Release dates can move. https://mcu.hutlab.dev/
+ #soon
+URL:https://mcu.hutlab.dev/#soon
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
