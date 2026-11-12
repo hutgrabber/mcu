@@ -1007,7 +1007,7 @@ function centerOn(lane, node){
 
 /* ---------- up next, progress and the countdown ---------- */
 const nextIndex = list => list.items.findIndex(it => !seen(it.id) && isOut(E[it.id]));
-let nextItem = null, nextTap = 0;
+let nextItem = null, nextTap = -Infinity;   /* time of the last Mark as watched tap; starts far back so the first tap always counts */
 function syncNext(){
   if (!mainLane) return;
   mainLane.items.forEach(it => it.node.classList.remove("upnext"));
