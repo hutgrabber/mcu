@@ -160,5 +160,11 @@ data=dict(phases=phases,routes=routes,soon=soon,share=share_order,story=dict(ids
   main=[dict(key='phases',chip='The Phases at a glance',title='The six Phases at a glance',type='ribbon',intro="Width shows how many films each Phase has. Tap a Phase to jump to it on the main line."),stones,storyc],
   spider=[spider],sony=[sony],shows=[wanda,street,loki],xmen=[xmen],ff=[ff]))
 assert len(story_ids)==len(story_labels)==40 and sorted(story_ids)==list(range(40))
-json.dump(data,open(pathlib.Path(__file__).resolve().parent/'charts.json','w'),ensure_ascii=False)
-print('ok')
+out=pathlib.Path(__file__).resolve().parent/'charts.json'
+text=json.dumps(data,ensure_ascii=False)
+if '--check' in __import__('sys').argv:
+    if not out.exists() or out.read_text()!=text: raise SystemExit('Out of date, run python3 src/charts.py: src/charts.json')
+    print('Up to date')
+else:
+    out.write_text(text)
+    print('ok')

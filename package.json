@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "python3 src/charts.py && python3 src/build.py",
-    "test": "python3 src/build.py --check && playwright test",
-    "test:all": "python3 src/build.py --check && firebase emulators:exec --only auth,firestore \"playwright test\"",
+    "test": "python3 src/charts.py --check && python3 src/build.py --check && playwright test",
+    "test:all": "python3 src/charts.py --check && python3 src/build.py --check && firebase emulators:exec --only auth,firestore \"playwright test\"",
     "emulators": "firebase emulators:start --only auth,firestore",
     "assets": "python3 scripts/assets.py"
   },
