@@ -1,1 +1,1 @@
-{ "projects": { "default": "demo-mcu" } }
+{ "projects": { "default": "demo-mcu", "live": "backend-mcu" } }

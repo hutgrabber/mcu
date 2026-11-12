@@ -72,7 +72,21 @@ Signing in is optional: without an account the site keeps everything in the brow
 - **The first sign-in** on a browser merges both lists, and anything watched on either side stays watched.
 - **Signing out** clears the list and settings from that browser. "Delete my account and synced list" removes the document and the account.
 
-On `localhost`, the page signs in and syncs through the Firebase emulator, so local testing never touches the real project. Add `?live` to the address to use the real project instead. Until the real project's config is filled in (`FIREBASE` in `src/template.html`), the published site doesn't offer sign-in at all.
+The Firebase project is `backend-mcu`. Its web config sits in `FIREBASE` in `src/template.html`; it's public by design, and the security rules are what protect the data. In `.firebaserc`, `default` is the offline emulator project and `live` is the real one, so a command only touches the real project when it says `--project live`.
+
+To put a change to `firebase/firestore.rules` live, sign the Firebase tool into your Google account once (it opens a link to approve in your browser and remembers the sign-in in a Docker volume), then deploy:
+
+```bash
+docker compose run --rm dev npx firebase login --no-localhost
+```
+
+```bash
+docker compose run --rm dev npm run deploy:rules
+```
+
+Run the tests first: the rules only go live after `npm run test:all` passes on them.
+
+On `localhost`, the page signs in and syncs through the Firebase emulator, so local testing never touches the real project. Add `?live` to the address to use the real project instead.
 
 ## Rules that keep shared links working
 
