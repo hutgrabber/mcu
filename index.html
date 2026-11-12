@@ -149,6 +149,10 @@ kbd{font:inherit;font-size:12px;padding:0 5px;border-radius:5px;background:var(-
 .sec-head p{margin:8px 0 0;max-width:64ch;color:var(--muted);font-size:14.5px}
 .seg{position:relative;display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;background:var(--panel);border-radius:999px;padding:3px}
 .seg::-webkit-scrollbar{display:none}
+/* a picker wider than the screen fades at the edge that has more, so it reads as something to scroll */
+.seg.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent)}
+.seg.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px);mask-image:linear-gradient(90deg,transparent,#000 32px)}
+.seg.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
 .seg button{position:relative;z-index:1;white-space:nowrap;border:0;background:none;padding:6px 13px;border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);transition:color .3s}
 .seg button[aria-pressed="true"]{color:var(--ink)}
 .seg .knob{position:absolute;top:3px;bottom:3px;left:0;border-radius:999px;background:var(--text);transition:transform .4s var(--ease),width .4s var(--ease)}
@@ -417,6 +421,11 @@ body.nospoil .veil:not(.shown) > :not(.reveal){filter:blur(7px);user-select:none
 .sheet.open{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:0s}
 .sheet p{margin:0 0 10px;font-size:14px}
 .sheet div{display:flex;gap:8px;flex-wrap:wrap}
+/* no single word left alone on a line */
+h1,h2,h3{text-wrap:balance}
+p,.next-l,.sheet p{text-wrap:pretty}
+/* on the narrowest phones, buttons that wrap share their rows evenly instead of leaving one stranded */
+@media (max-width:360px){.sheet div .btn,#c-tabs button{flex:1 1 auto}}
 
 /* ---------- phase rings ---------- */
 .rings{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
@@ -943,7 +952,13 @@ function syncSeg(seg){
   if (!on) return;
   knob.style.width = on.offsetWidth + "px"; knob.style.transform = "translateX(" + on.offsetLeft + "px)";
   if (seg.scrollWidth > seg.clientWidth + 2) seg.scrollLeft = Math.max(0, on.offsetLeft - (seg.clientWidth - on.offsetWidth) / 2);
+  segEdges(seg);
 }
+function segEdges(seg){
+  const max = seg.scrollWidth - seg.clientWidth;
+  seg.classList.toggle("more-l", seg.scrollLeft > 2); seg.classList.toggle("more-r", seg.scrollLeft < max - 2);
+}
+$$(".seg").forEach(seg => seg.addEventListener("scroll", () => segEdges(seg), {passive: true}));
 
 /* ---------- main line ---------- */
 let mainLane = null, mode = "films";
