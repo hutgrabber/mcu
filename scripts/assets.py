@@ -1,7 +1,10 @@
-import asyncio, json, math, random, io
+"""Draws the icons, favicons, og.png and og-list.png, and writes site.webmanifest, into the repo root.
+Needs Pillow and Playwright with Chromium, plus network access for Google Fonts."""
+import asyncio, json, math, random, io, contextlib, pathlib, tempfile
 from PIL import Image
-from qa import browser, font_css, FILES
-OUT='/home/claude/site/'
+from playwright.async_api import async_playwright
+OUT=str(pathlib.Path(__file__).resolve().parent.parent)+'/'
+WORK=tempfile.mkdtemp(prefix='mcu-assets-')+'/'
 FRAME="M6 13C5.6 7.6 9.6 5.2 16 5c7.6-.3 11.6 1.9 16 1.9S40.4 4.7 48 5c6.4.2 10.4 2.6 10 8-.6 8.4-4.2 14.6-12 14.6-5.8 0-8.9-3.9-10.3-8.3-.8-2.5-6.6-2.5-7.4 0C26.9 23.7 23.8 27.6 18 27.6 10.200 27.600 6.600 21.400 6 13z".replace('10.200 27.600 6.600 21.400','10.2 27.6 6.6 21.4')
 LL="M10.6 13.2c-.2-3 1.7-4.3 5.6-4.5 4.7-.2 8.8.6 10.3 2.3 1.3 1.5.3 5.9-1.9 9-1.7 2.4-3.9 3.4-6.600 3.400-4.7 0-7-4.4-7.4-10.2z".replace('6.600 3.400','6.6 3.4')
 LR="M53.4 13.2c.2-3-1.7-4.3-5.6-4.5-4.7-.2-8.8.6-10.3 2.3-1.3 1.5-.3 5.9 1.9 9 1.7 2.4 3.9 3.4 6.6 3.4 4.7 0 7-4.4 7.4-10.2z"
@@ -24,8 +27,14 @@ def icon_svg(size=64, rx=14, scale=.94, pad_bg=BG, rich=False):
     t=(64-64*scale)/2
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="{size}" height="{size}"><rect width="64" height="64" rx="{rx}" fill="{pad_bg}"/><g transform="translate({t:.2f} {16.5 - (scale-.94)*16:.2f}) scale({scale})">{glasses(arms=False, offsets=rich, shine=rich)}</g></svg>'
 
-FONT=font_css('file://'+'/'.join(FILES['archivo.woff2'].split('/')[:-1])+'/').replace('archivo.woff2','archivo-latin-standard-normal.woff2').replace('archivo-i.woff2','archivo-latin-standard-italic.woff2')
-SS=FILES['ss4.woff2']
+FONT='@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=block");'
+
+@contextlib.asynccontextmanager
+async def browser():
+    async with async_playwright() as p:
+        b = await p.chromium.launch()
+        try: yield b
+        finally: await b.close()
 
 def base_css():
     return f'''<style>{FONT}
@@ -133,8 +142,8 @@ async def main():
     async with browser() as b:
         pg = await b.new_page(viewport={'width':1200,'height':630})
         for name,html in (('og',og_site()),('og-list',og_list())):
-            open(f'/home/claude/web/{name}.html','w').write(html)
-            await pg.goto(f'file:///home/claude/web/{name}.html'); await pg.wait_for_timeout(700)
+            open(f'{WORK}{name}.html','w').write(html)
+            await pg.goto(f'file://{WORK}{name}.html'); await pg.evaluate('document.fonts.ready'); await pg.wait_for_timeout(700)
             await pg.screenshot(path=OUT+name+'.png')
         # icons
         async def shot(svg, size, path, transparent=False):
@@ -145,8 +154,8 @@ async def main():
         await shot(icon_svg(192, rx=14, scale=.88, rich=True), 192, OUT+'icon-192.png', True)
         await shot(icon_svg(512, rx=14, scale=.88, rich=True), 512, OUT+'icon-512.png', True)
         await shot(icon_svg(512, rx=0, scale=.7, rich=True), 512, OUT+'icon-maskable-512.png')
-        await shot(icon_svg(256, rx=14), 256, '/home/claude/web/icon-256.png', True)
-    im=Image.open('/home/claude/web/icon-256.png').convert('RGBA')
+        await shot(icon_svg(256, rx=14), 256, WORK+'icon-256.png', True)
+    im=Image.open(WORK+'icon-256.png').convert('RGBA')
     im.save(OUT+'favicon.ico', sizes=[(16,16),(32,32),(48,48)])
     for n in ('og','og-list'):
         im=Image.open(OUT+n+'.png').convert('RGB'); im.save(OUT+n+'.png', optimize=True)
