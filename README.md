@@ -16,7 +16,7 @@ GitHub Pages serves the repo root, so the built site lives there: `index.html`, 
 | `scripts/legacy/` | The first steps that turned the guide into raw data. Kept for reference only. |
 | `tests/` | Playwright tests, the test server and the Docker image |
 | `tests/fixtures/` | Frozen copies of the share order and of links already shared. Never edit these to make a test pass. |
-| `firebase/` | Firestore security rules |
+| `firebase/firestore.rules` | The security rules for the synced watched lists. The site has no server, so these rules are its backend. |
 
 ## Building
 
@@ -47,6 +47,8 @@ That checks the build is current and runs the Playwright tests against a local c
 ```bash
 docker compose run --rm dev npm run test:all
 ```
+
+That adds the security rules tests: only you can read, change or delete your own document, only Google sign-in counts, nothing else in the database can be touched, and a document can only hold the known fields within their size limits.
 
 The emulator uses the project id `demo-mcu`, which Firebase treats as offline only, so tests can never touch the real project.
 
