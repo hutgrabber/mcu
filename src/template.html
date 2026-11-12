@@ -1391,18 +1391,30 @@ function openDrawer(list, idx, dir){
   syncWatchBtn();
   const wasOpen = drawer.classList.contains("open");
   drawer.classList.add("open"); scrim.classList.add("open"); drawer.setAttribute("aria-hidden", "false");
-  /* a story gets its own history entry, so the Back button (or back swipe) closes it instead of leaving the site */
-  try { if (!wasOpen && !(history.state && history.state.story)) history.pushState({story: 1}, "", "#t=" + slugOf(e)); else history.replaceState({story: 1}, "", "#t=" + slugOf(e)); } catch (err) {}
+  if (wasOpen){ try { history.replaceState({story: 1}, "", "#t=" + slugOf(e)); } catch (err) {} }
+  else overlayOpened({story: 1}, "#t=" + slugOf(e));
   if (!list.chart) centerOn(list, it.node);
   if (!wasOpen) $("#d-close").focus({preventScroll: true});
 }
-let skipPop = false;
+/* A story, the watched-list panel and the comparison each get one history entry while open,
+   so the Back button (or back swipe) closes them instead of leaving the site.
+   Closing one with its own button goes back over that entry, a moment later; if another opens straight away, it reuses the entry. */
+let skipPop = false, backSoon = false;
+function overlayOpened(state, url){
+  const reuse = backSoon || !!(history.state && (history.state.story || history.state.panel));
+  backSoon = false;
+  try { if (reuse) history.replaceState(state, "", url); else history.pushState(state, "", url); } catch (err) {}
+}
+function overlayClosed(){
+  backSoon = true;
+  queueMicrotask(() => { if (!backSoon) return; backSoon = false; skipPop = true; try { history.back(); } catch (err) { skipPop = false; } });
+}
 function closeDrawer(fromBack){
   if (!drawer.classList.contains("open")) return;
   drawer.classList.remove("open"); scrim.classList.remove("open"); drawer.setAttribute("aria-hidden", "true");
   if (cur) cur.list.items.forEach(x => x.node.classList.remove("current"));
   if (fromBack === true){ if (/^#t=/.test(location.hash)) setHash(""); }
-  else if (history.state && history.state.story){ skipPop = true; try { history.back(); } catch (err) { skipPop = false; setHash(""); } }
+  else if (history.state && history.state.story) overlayClosed();
   else setHash("");
   const it = cur && cur.list.items[cur.idx], fromList = lastFocus && lastFocus.closest && lastFocus.closest(".stop,.node");
   const back = it && fromList ? (it.node.matches("button") ? it.node : it.node.querySelector(".card")) : lastFocus;
@@ -1411,6 +1423,8 @@ function closeDrawer(fromBack){
 addEventListener("popstate", () => {
   if (skipPop){ skipPop = false; if (/^#t=/.test(location.hash)) setHash(""); return; }
   closeDrawer(true);
+  const here = history.state && history.state.panel;
+  panels.forEach(p => { if (p.isOpen() && p.name !== here) p.close(true); });
 });
 function syncActs(){
   const box = $("#d-acts");
@@ -1846,16 +1860,19 @@ function trap(ev, node){
   if (ev.shiftKey && document.activeElement === f[0]){ ev.preventDefault(); f[f.length - 1].focus(); }
   else if (!ev.shiftKey && document.activeElement === f[f.length - 1]){ ev.preventDefault(); f[0].focus(); }
 }
+const panels = [];
 function sidePanel(node, onClose){
   let back = null;
   const api = {
+    name: node.id,
     isOpen: () => node.classList.contains("open"),
-    open(){ if (api.isOpen()) return; back = document.activeElement; if (back && back.closest && back.closest("#menu")) back = $("#more"); node.classList.add("open"); softScrim.classList.add("open"); node.setAttribute("aria-hidden", "false"); node.querySelector(".x").focus({preventScroll: true}); },
-    close(){ if (!api.isOpen()) return; node.classList.remove("open"); softScrim.classList.remove("open"); node.setAttribute("aria-hidden", "true"); if (onClose) onClose(); if (back && back.focus) back.focus({preventScroll: true}); }
+    open(fromHistory){ if (api.isOpen()) return; if (fromHistory !== true) overlayOpened({panel: node.id}, location.pathname + location.search + location.hash); back = document.activeElement; if (back && back.closest && back.closest("#menu")) back = $("#more"); node.classList.add("open"); softScrim.classList.add("open"); node.setAttribute("aria-hidden", "false"); node.querySelector(".x").focus({preventScroll: true}); },
+    close(fromBack){ if (!api.isOpen()) return; if (fromBack !== true && history.state && history.state.panel === node.id) overlayClosed(); node.classList.remove("open"); softScrim.classList.remove("open"); node.setAttribute("aria-hidden", "true"); if (onClose) onClose(); if (back && back.focus) back.focus({preventScroll: true}); }
   };
-  softScrim.addEventListener("click", api.close);
-  node.querySelector(".x").addEventListener("click", api.close);
+  softScrim.addEventListener("click", () => api.close());
+  node.querySelector(".x").addEventListener("click", () => api.close());
   document.addEventListener("keydown", ev => { if (!api.isOpen()) return; if (ev.key === "Escape" && !ev.defaultPrevented) api.close(); if (ev.key === "Tab") trap(ev, node); });
+  panels.push(api);
   return api;
 }
 
