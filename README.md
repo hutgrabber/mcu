@@ -67,7 +67,8 @@ Signing in is optional: without an account the site keeps everything in the brow
 - **Sign-in** is Google only, in a pop-up window. The Firebase browser modules load only for people who sign in.
 - **Storage** is one Firestore document per person (`users/{their user id}`). It holds an entry per title, saying whether it's watched and when that last changed, so two devices merge by keeping the later change. The page code is in `src/template.html`, in the sections headed "syncing across devices".
 - **Writes** are batched: one write two seconds after the last change, or when the tab is hidden. Before writing, the page fetches the account's list unless it did so in the last 30 seconds, so an old change can't overwrite a newer one.
-- **Reads** happen when the page opens and whenever the tab comes back into view.
+- **Sign-in is remembered:** Firebase keeps it in the browser, so you sign in once per browser, not once per visit. The sign-in button only comes back if that saved sign-in really ends, such as after clearing the site's data. If Firebase can't load when the page opens (offline, say), you stay signed in and the page catches up once it can.
+- **Reads** happen when the page opens, whenever the tab comes back into view, and every minute while you're using the page. The every-minute sync pauses after ten minutes without a tap, key press or scroll, so a tab left open all day doesn't use up the free daily reads, and it syncs again on the next tap. It also retries any write that failed.
 - **The first sign-in** on a browser merges both lists, and anything watched on either side stays watched.
 - **Signing out** clears the list and settings from that browser. "Delete my account and synced list" removes the document and the account.
 
