@@ -63,7 +63,7 @@ test("search: Enter jumps, Escape clears", async ({ page }) => {
 test("switching what the main line shows doesn't replay the tick animation", async ({ page }) => {
   await open(page, "/", { watched: ["ironman|2008", "thor|2011"] });
   await page.click("#mode [data-mode=all]");
-  await expect(page.locator(".stop.just")).toHaveCount(0);
+  expect(await page.locator(".stop.just").count()).toBe(0);
 });
 
 test("reduced motion shows every line straight away", async ({ browser, baseURL }) => {
