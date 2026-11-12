@@ -1,10 +1,52 @@
 rules_version = '2';
 
-// Placeholder until the real rules land: nobody can read or write anything.
+// The site has no server of its own, so these rules are its backend. Every read and write from a browser is checked here.
+//
+// One document per person, at users/{their user id}:
+//   schema     1
+//   watched    map of title id -> { on: true or false, at: milliseconds since 1970 }
+//              One entry per title ever ticked or unticked, so two devices can merge by keeping the later change.
+//   prefs      { theme: "dark" or "light", spoilers: true or false, route: a route key }, each one optional
+//   updatedAt  the server's time of the write
+//
+// Rules can't loop over a map, so they can't check each watched entry's shape. They cap how many there are instead,
+// and the page ignores any entry it can't read.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow get, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validUser(request.resource.data);
+    }
+
+    // Anything else, including listing other people's documents, is refused.
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Signed in with Google, and the document is their own.
+    function isOwner(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    function validUser(d) {
+      return d.keys().hasAll(['schema', 'watched', 'updatedAt'])
+        && d.keys().hasOnly(['schema', 'watched', 'prefs', 'updatedAt'])
+        && d.schema == 1
+        && d.watched is map && d.watched.size() <= 400
+        && d.updatedAt == request.time
+        && (!('prefs' in d) || validPrefs(d.prefs));
+    }
+
+    function validPrefs(p) {
+      return p is map
+        && p.keys().hasOnly(['theme', 'spoilers', 'route'])
+        && (!('theme' in p) || p.theme in ['dark', 'light'])
+        && (!('spoilers' in p) || p.spoilers is bool)
+        && (!('route' in p) || (p.route is string && p.route.size() <= 40));
     }
   }
 }
