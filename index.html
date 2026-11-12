@@ -486,8 +486,7 @@ p,.next-l,.sheet p{text-wrap:pretty}
   .b-row input:checked + .bx{animation:tick .4s var(--ease)}
 }
 /* theme switch: the new theme opens from the button */
-::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
-::view-transition-old(root){z-index:0} ::view-transition-new(root){z-index:1}
+.splash{position:fixed;z-index:50;border-radius:50%;pointer-events:none}
 html.vt body,html.vt .bar,html.vt .card,html.vt .dot,html.vt .ib,html.vt .btn,html.vt .chip,html.vt .node,html.vt .ph,html.vt .ring,html.vt .seg button,html.vt .nav a,html.vt .x,html.vt .knob,html.vt .pip{transition:none!important}
 
 @media (max-width:400px){.brand{gap:6px;font-size:14px} .logo{width:40px;height:21px} .tools{gap:4px}}
@@ -1551,16 +1550,22 @@ function syncTheme(){
   themeBtn.title = light ? "Dark theme" : "Light theme";
   $('meta[name="theme-color"]').content = light ? "#F4F1FF" : "#1A1838";
 }
+/* Switching theme: a circle of the new background spreads from the button, the theme changes behind it, and the circle fades.
+   It moves as one solid shape, which stays smooth without a graphics card. The browser's own view transition redrew two
+   full-screen pictures of the page every frame and ran at 20 to 30 frames a second on a large screen. */
 themeBtn.onclick = () => {
+  if (root.classList.contains("vt")) return;
   const next = root.dataset.theme === "light" ? "dark" : "light";
   const apply = () => { root.dataset.theme = next; put("hut-mcu-helper-theme", next); prefChanged("theme", next); syncTheme(); };
-  if (!document.startViewTransition || reduced() || root.classList.contains("vt")){ apply(); return; }
-  const r = themeBtn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, far = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-  root.classList.add("vt");
-  const vt = document.startViewTransition(apply);
-  vt.ready.then(() => root.animate({clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + far + "px at " + x + "px " + y + "px)"]},
-    {duration: 560, easing: "cubic-bezier(.3,.7,.2,1)", pseudoElement: "::view-transition-new(root)"})).catch(() => {});
-  vt.finished.catch(() => {}).then(() => root.classList.remove("vt"));
+  if (reduced()){ apply(); return; }
+  const r = themeBtn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const far = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
+  const c = el("div", "splash");
+  c.style.cssText = "left:" + (x - far) + "px;top:" + (y - far) + "px;width:" + 2 * far + "px;height:" + 2 * far + "px;background:" + (next === "light" ? "#F4F1FF" : "#1A1838");
+  root.classList.add("vt"); document.body.append(c);
+  c.animate({transform: ["scale(.001)", "scale(1)"]}, {duration: 380, easing: "cubic-bezier(.3,.7,.2,1)"}).finished.catch(() => {})
+    .then(() => { apply(); return c.animate({opacity: [1, 0]}, {duration: 260, easing: "ease-out", fill: "forwards"}).finished.catch(() => {}); })
+    .then(() => { c.remove(); root.classList.remove("vt"); });
 };
 matchMedia("(prefers-color-scheme: light)").addEventListener("change", ev => { if (!get("hut-mcu-helper-theme")){ root.dataset.theme = ev.matches ? "light" : "dark"; syncTheme(); } });
 syncTheme();
