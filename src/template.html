@@ -110,6 +110,9 @@ button{font:inherit;color:inherit}
 .menu button .sw{width:28px;height:16px;border-radius:999px;background:var(--panel-2);position:relative;flex:none;transition:background .25s}
 .menu button .sw::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform .25s var(--ease),background .25s}
 .menu button[aria-pressed="true"] .sw{background:var(--neo-c)} .menu button[aria-pressed="true"] .sw::after{transform:translateX(12px);background:var(--on)}
+.menu .acct{margin-top:4px;padding-top:4px;border-top:1px solid var(--line)}
+.menu .who{display:block;padding:8px 10px 2px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.menu [hidden]{display:none}
 .menu p{margin:6px 10px 6px;padding-top:8px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
 kbd{font:inherit;font-size:12px;padding:0 5px;border-radius:5px;background:var(--panel);color:var(--text);box-shadow:inset 0 -1px 0 var(--line)}
 
@@ -558,6 +561,12 @@ html.vt body,html.vt .bar,html.vt .card,html.vt .dot,html.vt .ib,html.vt .btn,ht
       <button id="m-tuck" aria-pressed="false"><span>Tuck away watched stops</span><span class="sw" aria-hidden="true"></span></button>
       <button id="m-share">Copy my watched-list link</button>
       <button id="m-clear">Clear my watched list</button>
+      <div class="acct" id="acct" hidden>
+        <button id="m-sync">Sign in with Google to sync across devices</button>
+        <span class="who" id="m-who" hidden></span>
+        <button id="m-out" hidden>Sign out</button>
+        <button id="m-delete" hidden>Delete my account and synced list</button>
+      </div>
       <p>Keys: <kbd>/</kbd> search, <kbd>N</kbd> up next, <kbd>W</kbd> watched list, <kbd>S</kbd> spoilers, <kbd>T</kbd> theme, and the arrow keys inside a story.</p>
     </div>
   </div>
@@ -638,7 +647,8 @@ html.vt body,html.vt .bar,html.vt .card,html.vt .dot,html.vt .ib,html.vt .btn,ht
 
 <footer>
   <p>Current as of November 10, 2026, the day <em>VisionQuest</em> ended. <em>Avengers: Doomsday</em> opens December 18, 2026, and <em>Avengers: Secret Wars</em> follows on December 17, 2027. Stories for released titles include full spoilers and every scene during and after the credits. "Hide spoilers" at the top blurs them.</p>
-  <p>Your watched list, theme and spoiler setting are saved in this browser only. To move a watched list to another device or send it to a friend, open "Build and share my watched list" in the menu at the top.</p>
+  <p id="local-note">Your watched list, theme and spoiler setting are saved in this browser only. To move a watched list to another device or send it to a friend, open "Build and share my watched list" in the menu at the top.</p>
+  <p id="privacy" hidden>Your watched list, theme and spoiler setting are saved in this browser. To keep them the same on all your devices, sign in with Google from the menu at the top. Signing in stores your Google name, email address and account id with Google's Firebase service, together with your watched list, theme, spoiler setting and last route, only so they can sync. Nobody else can read them, and "Delete my account and synced list" in the menu removes all of it. To send a watched list to a friend, open "Build and share my watched list" in the same menu.</p>
 </footer>
 
 <div class="scrim" id="scrim"></div>
@@ -719,11 +729,17 @@ const inDays = n => n === 0 ? "today" : n === 1 ? "tomorrow" : "in " + n + " day
 const STORE = "hut-mcu-helper-watched";
 const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const del = k => { try { localStorage.removeItem(k); } catch (e) {} };
 let watched = new Set();
 try { watched = new Set(JSON.parse(get(STORE) || "[]")); } catch (e) {}
-const save = () => put(STORE, JSON.stringify([...watched]));
+const save = () => { put(STORE, JSON.stringify([...watched])); afterSave(); };
 let hideSpoilers = get("hut-mcu-helper-spoilers") === "1";
 const ORDER = CHARTS.share;                 /* order used by share codes; new titles are only ever added at the end */
+/* Signed-in sync, kept in this browser so it survives a reload or going offline:
+   {uid, email, entries: every title's last change, pending: changes not sent yet, prefs, prefsDirty} */
+const SYNC = "hut-mcu-helper-sync";
+let sync = null;
+try { sync = JSON.parse(get(SYNC) || "null"); } catch (e) {}
 let live = false;                           /* false while the page is first drawn, so nothing celebrates or flashes on load */
 let friend = null;                          /* a shared list being compared with yours (this visit only) */
 const friendHas = id => { const e = E[id]; return e.alias ? e.alias.every(friendHas) : friend.has(keyOf(e)); };
@@ -1050,7 +1066,7 @@ $("#next-done").onclick = () => {
 let routeLane = null, routeKey = get("hut-mcu-helper-route");
 if (!CHARTS.routes.some(r => r.key === routeKey)) routeKey = CHARTS.routes[0].key;
 function renderRoute(key, first){
-  routeKey = key; put("hut-mcu-helper-route", key);
+  routeKey = key; put("hut-mcu-helper-route", key); prefChanged("route", key);
   const r = CHARTS.routes.find(x => x.key === key), host = $("#routeLane");
   host.innerHTML = "";
   if (routeLane) lanes.splice(lanes.indexOf(routeLane), 1);
@@ -1493,7 +1509,7 @@ function syncSpoil(){
 }
 sp.onclick = () => {
   hideSpoilers = !hideSpoilers;
-  put("hut-mcu-helper-spoilers", hideSpoilers ? "1" : "0");
+  put("hut-mcu-helper-spoilers", hideSpoilers ? "1" : "0"); prefChanged("spoilers", hideSpoilers);
   syncSpoil(); toast(hideSpoilers ? "Spoilers hidden. Tap any blurred text to read it." : "Spoilers shown");
 };
 syncSpoil();
@@ -1508,7 +1524,7 @@ function syncTheme(){
 }
 themeBtn.onclick = () => {
   const next = root.dataset.theme === "light" ? "dark" : "light";
-  const apply = () => { root.dataset.theme = next; put("hut-mcu-helper-theme", next); syncTheme(); };
+  const apply = () => { root.dataset.theme = next; put("hut-mcu-helper-theme", next); prefChanged("theme", next); syncTheme(); };
   if (!document.startViewTransition || reduced() || root.classList.contains("vt")){ apply(); return; }
   const r = themeBtn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, far = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
   root.classList.add("vt");
@@ -1522,7 +1538,7 @@ syncTheme();
 
 /* ---------- menu: tuck watched, share, clear ---------- */
 const more = $("#more"), menu = $("#menu"), tuck = $("#m-tuck"), clearBtn = $("#m-clear");
-function setMenu(open){ menu.classList.toggle("open", open); more.setAttribute("aria-expanded", open); if (!open){ clearBtn.textContent = "Clear my watched list"; clearBtn.dataset.armed = ""; } }
+function setMenu(open){ menu.classList.toggle("open", open); more.setAttribute("aria-expanded", open); if (!open){ clearBtn.textContent = "Clear my watched list"; clearBtn.dataset.armed = ""; delBtn.textContent = "Delete my account and synced list"; delBtn.dataset.armed = ""; } }
 more.onclick = ev => { ev.stopPropagation(); setMenu(!menu.classList.contains("open")); };
 document.addEventListener("click", ev => { if (!ev.target.closest("#menu")) setMenu(false); });
 function setTuck(on){
@@ -1571,6 +1587,232 @@ clearBtn.onclick = ev => {
   if (!clearBtn.dataset.armed){ clearBtn.dataset.armed = "1"; clearBtn.textContent = "Tap again to clear " + watched.size + (watched.size === 1 ? " title" : " titles"); return; }
   change("Watched list cleared", () => watched.clear()); setMenu(false);
 };
+
+/* ---------- syncing across devices: the merge rules ---------- */
+/* sync logic: start */
+/* An entry is {on, at}: whether a title is watched, and when that last changed, in milliseconds. */
+const goodEntry = x => !!x && typeof x.on === "boolean" && typeof x.at === "number" && isFinite(x.at);
+/* Only entries the page can read, for titles it knows */
+function cleanEntries(raw, known){
+  const out = {};
+  if (raw && typeof raw === "object") for (const id in raw) if (known.has(id) && goodEntry(raw[id])) out[id] = {on: raw[id].on, at: raw[id].at};
+  return out;
+}
+/* For each title keep the later change. A tie keeps "watched", so a tick is never lost to a draw. */
+function mergeEntries(a, b){
+  const out = Object.assign({}, a);
+  for (const id in b){ const x = b[id], y = out[id]; if (goodEntry(x) && (!y || x.at > y.at || (x.at === y.at && x.on && !y.on))) out[id] = {on: x.on, at: x.at}; }
+  return out;
+}
+const onIds = entries => Object.keys(entries).filter(id => entries[id].on);
+/* The entries that turn one list of ids into another, stamped with the time `at` */
+function changesBetween(from, to, at){
+  const a = new Set(from), b = new Set(to), out = {};
+  b.forEach(id => { if (!a.has(id)) out[id] = {on: true, at}; });
+  a.forEach(id => { if (!b.has(id)) out[id] = {on: false, at}; });
+  return out;
+}
+/* The first sign-in on a browser: every title watched on either side stays watched. `added` is what the browser brings to the account. */
+function firstMerge(cloud, localIds, now){
+  const added = {};
+  localIds.forEach(id => { const c = cloud[id]; if (!(c && c.on)) added[id] = {on: true, at: c ? Math.max(now, c.at + 1) : now}; });
+  return {entries: mergeEntries(cloud, added), added};
+}
+/* sync logic: end */
+
+/* ---------- syncing across devices ---------- */
+/* The Firebase project. This config is public by design: the security rules decide who can read and write what. */
+const FIREBASE = {apiKey: "", authDomain: "", projectId: "", appId: ""};
+const SDK = "https://www.gstatic.com/firebasejs/13.1.0/";
+/* On this machine, sign-in and the database are the local Firebase emulator, unless the address ends in ?live */
+const EMULATOR = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]live\b/.test(location.search);
+const canSync = EMULATOR || !!FIREBASE.apiKey;
+/* Synced lists store each title's id, so a retitled film keeps its tick. The ids are the share order's, one per title. */
+const ID_OF = new Map(ORDER.map(id => [keyOf(E[id]), String(id)])), KEY_OF = new Map([...ID_OF].map(([k, id]) => [id, k]));
+const idsOf = keys => [...keys].map(k => ID_OF.get(k)).filter(Boolean);
+const titles = n => n + (n === 1 ? " title" : " titles");
+let fb = null, acct = null, checking = false, flushT = null, lastPull = 0, syncFail = false;
+
+/* Firebase loads only for people who sign in, so nobody else downloads it */
+function loadFirebase(){
+  return fb || (fb = Promise.all(["app", "auth", "firestore-lite"].map(m => import(SDK + "firebase-" + m + ".js"))).then(([A, Au, F]) => {
+    const app = A.initializeApp(EMULATOR ? {apiKey: "emulator", projectId: "demo-mcu", authDomain: location.host} : FIREBASE);
+    const auth = Au.getAuth(app), db = F.getFirestore(app);
+    if (EMULATOR){ Au.connectAuthEmulator(auth, "http://" + location.hostname + ":9099", {disableWarnings: true}); F.connectFirestoreEmulator(db, location.hostname, 8080); }
+    return {Au, F, auth, db};
+  }).catch(e => { fb = null; throw e; }));
+}
+const keepSync = () => sync ? put(SYNC, JSON.stringify(sync)) : del(SYNC);
+const quietly = fn => { const was = live; live = false; try { fn(); } finally { live = was; } };   /* no pop, flash or confetti */
+const soon = () => { clearTimeout(flushT); flushT = setTimeout(flush, 2000); };
+const failed = () => { if (!syncFail){ syncFail = true; toast("Couldn't sync just now. Your changes are saved here and will sync when you're back online."); } };
+
+/* Every change to the watched list ends in save(), Undo included, so this is where a signed-in change is stamped and queued */
+function afterSave(){
+  if (!sync || !sync.uid) return;
+  const ch = changesBetween(onIds(sync.entries), idsOf(watched), Date.now());
+  if (!Object.keys(ch).length) return;
+  Object.assign(sync.entries, ch); Object.assign(sync.pending, ch);
+  keepSync(); soon();
+}
+function prefChanged(name, value){
+  if (!sync || !sync.uid || sync.prefs[name] === value) return;
+  sync.prefs[name] = value; sync.prefsDirty = true;
+  keepSync(); soon();
+}
+/* Sends everything waiting as one write, so ticking a whole Phase costs one write, not one per title.
+   A write replaces what the account holds for those titles, so it fetches first unless it did so moments ago:
+   a change made elsewhere since then may be newer than the one waiting here. */
+async function flush(){
+  clearTimeout(flushT);
+  if (!acct || !sync) return true;
+  if (Date.now() - lastPull > 30000){ try { await pull(true); } catch (e){ failed(); return false; } if (!acct || !sync) return true; }
+  const sent = Object.assign({}, sync.pending), prefs = sync.prefsDirty && Object.assign({}, sync.prefs);
+  if (!Object.keys(sent).length && !prefs) return true;
+  try {
+    const {F, db} = await loadFirebase(), data = {schema: 1, watched: sent, updatedAt: F.serverTimestamp()};
+    if (prefs) data.prefs = prefs;
+    await F.setDoc(F.doc(db, "users", acct.uid), data, {merge: true});
+  } catch (e){ failed(); return false; }
+  if (!sync) return true;
+  for (const id in sent) if (sync.pending[id] && sync.pending[id].at === sent[id].at) delete sync.pending[id];
+  if (prefs && JSON.stringify(prefs) === JSON.stringify(sync.prefs)) sync.prefsDirty = false;
+  syncFail = false; keepSync();
+  return true;
+}
+/* Shows the merged list as a quiet update rather than a change of your own */
+function applyList(){
+  const want = new Set(onIds(sync.entries)), have = new Set(idsOf(watched));
+  if (want.size === have.size && [...want].every(id => have.has(id))) return;
+  watched.clear(); want.forEach(id => watched.add(KEY_OF.get(id)));
+  put(STORE, JSON.stringify([...watched]));
+  quietly(refreshAll);
+  if (cur && drawer.classList.contains("open")) syncWatchBtn();
+}
+function applyPrefs(p){
+  if (p.theme === "dark" || p.theme === "light"){
+    sync.prefs.theme = p.theme; put("hut-mcu-helper-theme", p.theme);
+    if (root.dataset.theme !== p.theme){ root.dataset.theme = p.theme; syncTheme(); }
+  }
+  if (typeof p.spoilers === "boolean"){
+    sync.prefs.spoilers = p.spoilers; put("hut-mcu-helper-spoilers", p.spoilers ? "1" : "0");
+    if (hideSpoilers !== p.spoilers){ hideSpoilers = p.spoilers; syncSpoil(); }
+  }
+  if (CHARTS.routes.some(r => r.key === p.route)){ sync.prefs.route = p.route; if (routeKey !== p.route) showRoute(p.route); }
+}
+/* Switches the Routes section the way its own buttons do, without the celebration a finished route gets */
+function showRoute(key){
+  $$("#route button").forEach(x => x.setAttribute("aria-pressed", x.dataset.route === key)); syncSeg($("#route"));
+  quietly(() => renderRoute(key, false));
+}
+/* Fetches the account's list and merges it in: when the page opens, whenever the tab comes back into view, and before a write */
+async function pull(noFlush){
+  if (!acct) return;
+  const {F, db} = await loadFirebase(), snap = await F.getDoc(F.doc(db, "users", acct.uid));
+  if (!sync || !acct) return;
+  lastPull = Date.now();
+  const d = snap.exists() ? snap.data() : {};
+  sync.entries = mergeEntries(sync.entries, cleanEntries(d.watched, KEY_OF));
+  /* a change made elsewhere later than one waiting here wins, so the waiting one is no longer sent */
+  for (const id in sync.pending) if (sync.entries[id].at !== sync.pending[id].at) delete sync.pending[id];
+  if (d.prefs && !sync.prefsDirty) applyPrefs(d.prefs);
+  keepSync(); applyList();
+  if (!noFlush && (Object.keys(sync.pending).length || sync.prefsDirty)) flush();
+}
+/* Links this browser to an account. The first time, the browser's list and the account's are merged and nothing is dropped. */
+async function start(user){
+  acct = user; checking = false;
+  if (sync && sync.uid === user.uid){ showAcct(); return pull().catch(failed); }
+  let cloud = {}, prefs = null;
+  try {
+    const {F, db} = await loadFirebase(), snap = await F.getDoc(F.doc(db, "users", user.uid));
+    if (snap.exists()){ cloud = cleanEntries(snap.data().watched, KEY_OF); prefs = snap.data().prefs || null; }
+  } catch (e){ acct = null; showAcct(); toast("Signed in, but couldn't reach your synced list. Try again in a moment."); return; }
+  const local = idsOf(watched), {entries, added} = firstMerge(cloud, local, Date.now());
+  const toHere = onIds(cloud).filter(id => !local.includes(id)).length, toAccount = Object.keys(added).length;
+  sync = {uid: user.uid, email: user.email || "", entries, pending: added, prefs: {}, prefsDirty: false};
+  if (prefs) applyPrefs(prefs);
+  else {
+    /* a new account takes the settings this browser chose, but not ones it only inherited from the device */
+    if (get("hut-mcu-helper-theme")) sync.prefs.theme = root.dataset.theme;
+    if (get("hut-mcu-helper-spoilers") !== null) sync.prefs.spoilers = hideSpoilers;
+    if (get("hut-mcu-helper-route") !== null) sync.prefs.route = routeKey;
+    sync.prefsDirty = Object.keys(sync.prefs).length > 0;
+  }
+  keepSync(); applyList(); showAcct(); flush();
+  toast(toHere || toAccount ? "Signed in and synced: " + titles(toHere) + " from your account added here, " + titles(toAccount) + " from this browser added to your account."
+    : "Signed in. Your watched list now stays the same on all your devices.");
+}
+async function signIn(){
+  setMenu(false);
+  let user;
+  try { const {Au, auth} = await loadFirebase(); user = (await Au.signInWithPopup(auth, new Au.GoogleAuthProvider())).user; }
+  catch (e){
+    const c = e && e.code;
+    if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return;
+    toast(c === "auth/popup-blocked" ? "Your browser blocked the sign-in window. Allow pop-ups for this site, then try again." : "Couldn't sign in. Check your connection and try again.");
+    return;
+  }
+  await start(user);
+}
+/* Clears the synced list and settings from this browser, back to a fresh start. The account keeps them. */
+function forget(){
+  acct = null; sync = null; checking = false; clearTimeout(flushT); keepSync();
+  ["hut-mcu-helper-theme", "hut-mcu-helper-spoilers", "hut-mcu-helper-route"].forEach(del);
+  watched.clear(); put(STORE, "[]");
+  root.dataset.theme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"; syncTheme();
+  hideSpoilers = false; syncSpoil();
+  showRoute(CHARTS.routes[0].key); quietly(refreshAll);
+  del("hut-mcu-helper-route");
+  showAcct();
+}
+async function signOut(){
+  setMenu(false);
+  if (!(await flush())){ toast("Your latest changes haven't synced yet. Check your connection, then sign out again."); return; }
+  try { const {Au, auth} = await loadFirebase(); await Au.signOut(auth); } catch (e) {}
+  forget();
+  toast("Signed out. Your watched list and settings are cleared from this browser and kept in your account.");
+}
+async function deleteData(ev){
+  ev.stopPropagation();
+  if (!delBtn.dataset.armed){ delBtn.dataset.armed = "1"; delBtn.textContent = "Tap again to delete your account and synced list"; return; }
+  setMenu(false);
+  try {
+    const {Au, F, auth, db} = await loadFirebase(), user = auth.currentUser;
+    await F.deleteDoc(F.doc(db, "users", user.uid));
+    try { await Au.deleteUser(user); }
+    catch (e){
+      if (e.code !== "auth/requires-recent-login") throw e;
+      await Au.reauthenticateWithPopup(user, new Au.GoogleAuthProvider()); await Au.deleteUser(user);
+    }
+  } catch (e){ toast("Couldn't delete everything. Check your connection and try again."); return; }
+  forget();
+  toast("Deleted. Your account and synced list are gone, and this browser is cleared.");
+}
+const syncBtn = $("#m-sync"), whoEl = $("#m-who"), outBtn = $("#m-out"), delBtn = $("#m-delete");
+function showAcct(){
+  const on = !!(sync && sync.uid && (acct || checking));
+  $("#acct").hidden = !canSync; $("#privacy").hidden = !canSync; $("#local-note").hidden = canSync;
+  syncBtn.hidden = on; whoEl.hidden = outBtn.hidden = delBtn.hidden = !on;
+  syncBtn.textContent = sync && sync.uid ? "Sign in again to keep syncing" : "Sign in with Google to sync across devices";
+  whoEl.textContent = on ? "Syncing as " + (sync.email || "your Google account") : "";
+}
+syncBtn.onclick = signIn; outBtn.onclick = signOut; delBtn.onclick = deleteData;
+document.addEventListener("visibilitychange", () => {
+  if (!acct) return;
+  if (document.visibilityState === "hidden") flush();
+  else if (Date.now() - lastPull > 5000) pull().catch(failed);
+});
+addEventListener("online", () => { if (acct) pull().catch(failed); });   /* pull sends what's waiting once it has merged */
+if (canSync && sync && sync.uid){
+  checking = true;
+  loadFirebase().then(async ({auth}) => {
+    await auth.authStateReady();
+    if (auth.currentUser && auth.currentUser.uid === sync.uid) start(auth.currentUser);
+    else { checking = false; showAcct(); }
+  }).catch(() => { checking = false; showAcct(); });
+}
+showAcct();
 
 /* ---------- side panels (the watched-list builder and the comparison) ---------- */
 const softScrim = $("#b-scrim");
