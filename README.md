@@ -48,7 +48,7 @@ That checks the build is current and runs the Playwright tests against a local c
 docker compose run --rm dev npm run test:all
 ```
 
-That adds the security rules tests: only you can read, change or delete your own document, only Google sign-in counts, nothing else in the database can be touched, and a document can only hold the known fields within their size limits.
+That adds the sync tests, which sign two or three browsers into the same pretend Google account and check that ticks, Undo, settings, sign-out, deletion and offline changes all behave, and the security rules tests: only you can read, change or delete your own document, only Google sign-in counts, nothing else in the database can be touched, and a document can only hold the known fields within their size limits.
 
 The emulator uses the project id `demo-mcu`, which Firebase treats as offline only, so tests can never touch the real project.
 
@@ -59,6 +59,19 @@ docker compose run --rm dev npm run assets
 ```
 
 The icons come out pixel for pixel the same as the published ones. The preview cards don't: Google Fonts renders the text slightly narrower than the font files the chat sandbox used, which moves one line break on `og-list.png`. Check both cards by eye before committing new ones.
+
+## Syncing across devices
+
+Signing in is optional: without an account the site keeps everything in the browser, as it always has. With an account, the watched list, theme, spoiler setting and last route follow you to every device you sign in on.
+
+- **Sign-in** is Google only, in a pop-up window. The Firebase browser modules load only for people who sign in.
+- **Storage** is one Firestore document per person (`users/{their user id}`). It holds an entry per title, saying whether it's watched and when that last changed, so two devices merge by keeping the later change. The page code is in `src/template.html`, in the sections headed "syncing across devices".
+- **Writes** are batched: one write two seconds after the last change, or when the tab is hidden. Before writing, the page fetches the account's list unless it did so in the last 30 seconds, so an old change can't overwrite a newer one.
+- **Reads** happen when the page opens and whenever the tab comes back into view.
+- **The first sign-in** on a browser merges both lists, and anything watched on either side stays watched.
+- **Signing out** clears the list and settings from that browser. "Delete my account and synced list" removes the document and the account.
+
+On `localhost`, the page signs in and syncs through the Firebase emulator, so local testing never touches the real project. Add `?live` to the address to use the real project instead. Until the real project's config is filled in (`FIREBASE` in `src/template.html`), the published site doesn't offer sign-in at all.
 
 ## Rules that keep shared links working
 
