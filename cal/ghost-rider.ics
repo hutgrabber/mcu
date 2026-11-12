@@ -1,0 +1,17 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hut's mcu helper//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:20280728-ghost-rider@mcu.hutlab.dev
+DTSTAMP:20280728T000000Z
+DTSTART;VALUE=DATE:20280728
+DTEND;VALUE=DATE:20280729
+SUMMARY:Ghost Rider opens in cinemas
+DESCRIPTION:Ryan Gosling plays Johnny Blaze. Shawn Levy directs. Release da
+ tes can move. https://mcu.hutlab.dev/#soon
+URL:https://mcu.hutlab.dev/#soon
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR

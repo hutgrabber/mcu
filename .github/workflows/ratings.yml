@@ -1,0 +1,69 @@
+# Refreshes the IMDb and Rotten Tomatoes ratings every week, and publishes them only once the full test suite passes.
+#
+# GitHub doesn't start workflows for pushes made by a workflow's own token, so this job starts the Tests workflow
+# itself on a temporary branch, waits for it, and moves main to that commit only if it passed. main requires the
+# "test" check, and that run is the check, so nothing reaches the site untested.
+name: Refresh ratings
+on:
+  schedule:
+    - cron: "0 7 * * 1"   # Mondays at 07:00 UTC
+  workflow_dispatch:
+  push:                   # and straight after a change to how ratings are fetched, such as a new title's IMDb id
+    branches: [main]
+    paths: [scripts/ratings.py, src/imdb.json, .github/workflows/ratings.yml]
+permissions:
+  contents: write   # push the temporary branch, then main
+  actions: write    # start the Tests workflow and read its result
+concurrency:
+  group: refresh-ratings
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BRANCH: ratings-refresh
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Fetch the ratings from OMDb
+        env:
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+        run: python3 scripts/ratings.py
+      - name: Rebuild the page
+        run: python3 src/build.py
+      - name: Stop if nothing changed
+        id: changed
+        run: |
+          if git diff --quiet; then echo "Ratings are unchanged."; echo "any=no" >> "$GITHUB_OUTPUT"; else echo "any=yes" >> "$GITHUB_OUTPUT"; fi
+      - name: Put the refresh on a temporary branch
+        if: steps.changed.outputs.any == 'yes'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add src/ratings.json index.html
+          git commit -m "Refresh the ratings from OMDb ($(date -u +%Y-%m-%d))"
+          git push --force origin "$BRANCH"
+      - name: Run the full test suite on it
+        if: steps.changed.outputs.any == 'yes'
+        run: |
+          sha=$(git rev-parse HEAD)
+          gh workflow run test.yml --ref "$BRANCH"
+          for i in $(seq 1 30); do
+            run=$(gh run list --workflow test.yml --branch "$BRANCH" --event workflow_dispatch --commit "$sha" --json databaseId --jq '.[0].databaseId')
+            [ -n "$run" ] && break
+            sleep 5
+          done
+          [ -n "$run" ] || { echo "The test run didn't start."; exit 1; }
+          gh run watch "$run" --exit-status --interval 15
+      - name: Publish
+        if: steps.changed.outputs.any == 'yes'
+        run: |
+          # A fast-forward only: if main moved on meanwhile, this fails, and next week's run starts from the new main
+          git push origin HEAD:main
+      - name: Remove the temporary branch
+        if: always() && steps.changed.outputs.any == 'yes'
+        run: git push origin --delete "$BRANCH" || true

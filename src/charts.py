@@ -156,9 +156,14 @@ soon=[
 ]
 # Order used by share codes. FROZEN: only ever append new ids at the end, or old links will decode wrongly.
 share_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 40, 41, 42, 43, 44, 51, 52, 53, 54, 55, 56, 57, 58, 59, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 96, 95, 92, 93, 94, 97, 98, 100, 103, 99, 102, 104, 101, 106, 107, 108, 109, 110]
+# "How they were received": ranked by IMDb or the Tomatometer, from src/ratings.json (see scripts/ratings.py)
+ratings_main=dict(key='ratings-main',chip='How the films were received',title='How every film was received',type='ratings',scope='main',
+  intro="Every Marvel Studios film ranked by its IMDb rating or its Rotten Tomatoes Tomatometer. Switch between them to see where audiences and critics disagree.")
+ratings_shows=dict(key='ratings-shows',chip='How the shows were received',title='How every show was received',type='ratings',scope='shows',
+  intro="Every show ranked by its IMDb rating. A single season gets the average rating of its episodes. Rotten Tomatoes scores for shows aren't available here.")
 data=dict(phases=phases,routes=routes,soon=soon,share=share_order,story=dict(ids=story_ids,labels=story_labels),sections=dict(
-  main=[dict(key='phases',chip='The Phases at a glance',title='The six Phases at a glance',type='ribbon',intro="Width shows how many films each Phase has. Tap a Phase to jump to it on the main line."),stones,storyc],
-  spider=[spider],sony=[sony],shows=[wanda,street,loki],xmen=[xmen],ff=[ff]))
+  main=[dict(key='phases',chip='The Phases at a glance',title='The six Phases at a glance',type='ribbon',intro="Width shows how many films each Phase has. Tap a Phase to jump to it on the main line."),stones,storyc,ratings_main],
+  spider=[spider],sony=[sony],shows=[wanda,street,loki,ratings_shows],xmen=[xmen],ff=[ff]))
 assert len(story_ids)==len(story_labels)==40 and sorted(story_ids)==list(range(40))
 out=pathlib.Path(__file__).resolve().parent/'charts.json'
 text=json.dumps(data,ensure_ascii=False)
