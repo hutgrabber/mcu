@@ -1,8 +1,8 @@
-# Refreshes the IMDb and Rotten Tomatoes ratings every week, and publishes them only once the full test suite passes.
+# Refreshes the IMDb and Rotten Tomatoes ratings every week, and publishes them through a pull request that merges
+# itself once the full test suite passes, like any other change to main.
 #
-# GitHub doesn't start workflows for pushes made by a workflow's own token, so this job starts the Tests workflow
-# itself on a temporary branch, waits for it, and moves main to that commit only if it passed. main requires the
-# "test" check, and that run is the check, so nothing reaches the site untested.
+# It acts with the owner's token (the RATINGS_TOKEN secret), not the workflow's own: GitHub doesn't start workflows
+# for pushes or pull requests made with a workflow's own token, so the tests main requires would never run.
 name: Refresh ratings
 on:
   schedule:
@@ -12,22 +12,29 @@ on:
     branches: [main]
     paths: [scripts/ratings.py, src/imdb.json, .github/workflows/ratings.yml]
 permissions:
-  contents: write   # push the temporary branch, then main
-  actions: write    # start the Tests workflow and read its result
+  contents: read
 concurrency:
   group: refresh-ratings
   cancel-in-progress: false
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
       BRANCH: ratings-refresh
-      GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ secrets.RATINGS_TOKEN }}
     steps:
+      - name: Check the secrets are set
+        env:
+          HAS_TOKEN: ${{ secrets.RATINGS_TOKEN != '' }}
+          HAS_KEY: ${{ secrets.OMDB_API_KEY != '' }}
+        run: |
+          [ "$HAS_KEY" = true ] || { echo "The OMDB_API_KEY secret isn't set."; exit 1; }
+          [ "$HAS_TOKEN" = true ] || { echo "The RATINGS_TOKEN secret isn't set. See the Ratings section of the README."; exit 1; }
       - uses: actions/checkout@v7
         with:
           ref: main
+          token: ${{ secrets.RATINGS_TOKEN }}
       - name: Fetch the ratings from OMDb
         env:
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
@@ -38,32 +45,18 @@ jobs:
         id: changed
         run: |
           if git diff --quiet; then echo "Ratings are unchanged."; echo "any=no" >> "$GITHUB_OUTPUT"; else echo "any=yes" >> "$GITHUB_OUTPUT"; fi
-      - name: Put the refresh on a temporary branch
+      - name: Open a pull request that merges itself once the tests pass
         if: steps.changed.outputs.any == 'yes'
         run: |
+          day=$(date -u +%Y-%m-%d)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
           git add src/ratings.json index.html
-          git commit -m "Refresh the ratings from OMDb ($(date -u +%Y-%m-%d))"
+          git commit -m "Refresh the ratings from OMDb ($day)"
           git push --force origin "$BRANCH"
-      - name: Run the full test suite on it
-        if: steps.changed.outputs.any == 'yes'
-        run: |
-          sha=$(git rev-parse HEAD)
-          gh workflow run test.yml --ref "$BRANCH"
-          for i in $(seq 1 30); do
-            run=$(gh run list --workflow test.yml --branch "$BRANCH" --event workflow_dispatch --commit "$sha" --json databaseId --jq '.[0].databaseId')
-            [ -n "$run" ] && break
-            sleep 5
-          done
-          [ -n "$run" ] || { echo "The test run didn't start."; exit 1; }
-          gh run watch "$run" --exit-status --interval 15
-      - name: Publish
-        if: steps.changed.outputs.any == 'yes'
-        run: |
-          # A fast-forward only: if main moved on meanwhile, this fails, and next week's run starts from the new main
-          git push origin HEAD:main
-      - name: Remove the temporary branch
-        if: always() && steps.changed.outputs.any == 'yes'
-        run: git push origin --delete "$BRANCH" || true
+          if [ "$(gh pr view "$BRANCH" --json state --jq .state 2>/dev/null)" != "OPEN" ]; then
+            gh pr create --base main --head "$BRANCH" --title "Refresh the ratings from OMDb ($day)" \
+              --body "The automatic ratings refresh from .github/workflows/ratings.yml. It merges itself once the tests pass."
+          fi
+          gh pr merge "$BRANCH" --auto --merge
