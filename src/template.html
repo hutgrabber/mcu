@@ -1798,20 +1798,44 @@ function showAcct(){
   whoEl.textContent = on ? "Syncing as " + (sync.email || "your Google account") : "";
 }
 syncBtn.onclick = signIn; outBtn.onclick = signOut; delBtn.onclick = deleteData;
-document.addEventListener("visibilitychange", () => {
-  if (!acct) return;
-  if (document.visibilityState === "hidden") flush();
-  else if (Date.now() - lastPull > 5000) pull().catch(failed);
-});
-addEventListener("online", () => { if (acct) pull().catch(failed); });   /* pull sends what's waiting once it has merged */
-if (canSync && sync && sync.uid){
-  checking = true;
-  loadFirebase().then(async ({auth}) => {
+/* Picks up the sign-in saved in this browser, so nobody has to sign in again on each visit.
+   Only Firebase saying there is no signed-in user shows the sign-in button again. If Firebase can't load (offline, say),
+   the page stays signed in and tries again later. */
+let resuming = false;
+async function resume(){
+  if (!canSync || !sync || !sync.uid || acct || resuming) return;
+  resuming = true; checking = true; showAcct();
+  try {
+    const {auth} = await loadFirebase();
     await auth.authStateReady();
-    if (auth.currentUser && auth.currentUser.uid === sync.uid) start(auth.currentUser);
+    if (auth.currentUser && sync && auth.currentUser.uid === sync.uid) await start(auth.currentUser);
     else { checking = false; showAcct(); }
-  }).catch(() => { checking = false; showAcct(); });
+  } catch (e) {}
+  resuming = false;
 }
+/* While someone is using the page it also syncs every minute, so a change from another device shows up without switching tabs,
+   and a write that failed is tried again. It pauses after ten minutes without a tap, key or scroll, so a tab left open all day
+   doesn't use up the free daily reads, and syncs again on the next tap. */
+const EVERY = 60000, IDLE = 600000;
+let lastActive = Date.now();
+const tick = () => {
+  if (!sync || !sync.uid || document.visibilityState !== "visible") return;
+  if (!acct){ resume(); return; }
+  if (Date.now() - lastPull > 5000) pull().catch(failed);   /* pull sends what's waiting once it has merged */
+  else if (Object.keys(sync.pending).length || sync.prefsDirty) flush();
+};
+["pointerdown", "keydown", "scroll", "touchstart"].forEach(t => addEventListener(t, () => {
+  const wasIdle = Date.now() - lastActive > IDLE;
+  lastActive = Date.now();
+  if (wasIdle) tick();
+}, {capture: true, passive: true}));
+setInterval(() => { if (Date.now() - lastActive <= IDLE) tick(); }, EVERY);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden"){ if (acct) flush(); }
+  else tick();
+});
+addEventListener("online", tick);
+resume();
 showAcct();
 
 /* ---------- side panels (the watched-list builder and the comparison) ---------- */

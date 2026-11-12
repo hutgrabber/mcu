@@ -62,7 +62,7 @@ test.describe("syncing", () => {
   const account = () => `t${process.pid}-${++n}-${Math.random().toString(36).slice(2, 7)}@example.com`;
   const pages = [];
   async function device(browser, baseURL, { watched, allow = [] } = {}){
-    const page = await browser.newPage({ baseURL });
+    const page = await (await browser.newContext({ baseURL })).newPage();
     page.errors = watchErrors(page); page.allow = allow; pages.push(page);
     if (watched) await page.addInitScript(([k, v]) => { if (!sessionStorage.getItem("seeded")){ localStorage.setItem(k, JSON.stringify(v)); sessionStorage.setItem("seeded", "1"); } }, [STORE, watched]);
     await page.goto("/");
@@ -71,7 +71,7 @@ test.describe("syncing", () => {
   test.afterEach(async () => {
     for (const page of pages.splice(0)){
       expect(page.errors.filter(e => !page.allow.some(a => e.includes(a))), "errors in the page").toEqual([]);
-      await page.close();
+      await page.context().close();
     }
   });
 
@@ -213,14 +213,73 @@ test.describe("syncing", () => {
     expect(await laptop.evaluate(() => localStorage.getItem("hut-mcu-helper-theme")), "saved for the next visit's first paint").toBe(other);
   });
 
-  test("a reload stays signed in and keeps the list", async ({ browser, baseURL }) => {
+  /* What the account part of the menu shows right now */
+  async function menuShows(page){
+    await page.click("#more");
+    const out = {};
+    for (const id of ["m-sync", "m-who", "m-out", "m-delete"]) out[id] = await page.locator("#" + id).isVisible();
+    await page.mouse.click(5, 300);
+    return out;
+  }
+  const SIGNED_IN = { "m-sync": false, "m-who": true, "m-out": true, "m-delete": true };
+
+  test("you stay signed in after a reload and in a new tab, with no sign-in button", async ({ browser, baseURL }) => {
     const email = account(), page = await device(browser, baseURL);
     await signIn(page, email);
     await page.click("#next-done");
     await synced(page);
     await page.reload();
     await expect(page.locator("#m-who")).toHaveText("Syncing as " + email);
+    expect(await menuShows(page)).toEqual(SIGNED_IN);
     expect(await stored(page)).toEqual(["ironman|2008"]);
+
+    const tab = await page.context().newPage();
+    tab.errors = watchErrors(tab); tab.allow = []; pages.push(tab);
+    await tab.goto("/");
+    await expect(tab.locator("#m-who")).toHaveText("Syncing as " + email);
+    expect(await menuShows(tab)).toEqual(SIGNED_IN);
+  });
+
+  test("if Firebase can't load when the page opens, you stay signed in and it catches up later", async ({ browser, baseURL }) => {
+    const email = account(), page = await device(browser, baseURL, { allow: ["net::ERR_FAILED", "Failed to fetch dynamically imported module"] });
+    await signIn(page, email);
+    await page.route("https://www.gstatic.com/firebasejs/**", r => r.abort());
+    await page.reload();
+    await page.waitForTimeout(1000);
+    expect(await menuShows(page)).toEqual(SIGNED_IN);
+    await page.click("#next-done");
+    expect(await stored(page)).toEqual(["ironman|2008"]);
+
+    await page.unroute("https://www.gstatic.com/firebasejs/**");
+    await page.evaluate(() => dispatchEvent(new Event("online")));
+    await synced(page);
+    const laptop = await device(browser, baseURL);
+    await signIn(laptop, email);
+    expect(await stored(laptop)).toEqual(["ironman|2008"]);
+  });
+
+  test("while you use the page it syncs every minute, and pauses when the tab is left alone", async ({ browser, baseURL }) => {
+    const email = account(), phone = await device(browser, baseURL), laptop = await device(browser, baseURL);
+    await signIn(phone, email); await signIn(laptop, email);
+    await laptop.clock.install();   // the laptop's clock now only moves when the test moves it
+    await laptop.reload();
+    await expect(laptop.locator("#m-who")).toHaveText("Syncing as " + email);
+    await laptop.clock.runFor(6000);
+
+    await phone.click("#next-done");
+    await synced(phone);
+    await laptop.clock.runFor(61000);
+    await expect.poll(() => stored(laptop), { message: "picked up within a minute, with no clicks" }).toEqual(["ironman|2008"]);
+
+    await laptop.clock.runFor(11 * 60000);   // ten minutes untouched: it stops fetching
+    await phone.keyboard.press("w");
+    await phone.locator(".b-grp").nth(0).locator(".b-row").first().click();   // unticks Iron Man
+    await synced(phone);
+    await laptop.clock.runFor(3 * 60000);
+    expect(await stored(laptop), "no fetching while the tab is left alone").toEqual(["ironman|2008"]);
+
+    await laptop.mouse.click(5, 300);   // the next tap syncs straight away
+    await expect.poll(() => stored(laptop)).toEqual([]);
   });
 
   test("a change made offline syncs once the connection is back", async ({ browser, baseURL }) => {
