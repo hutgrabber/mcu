@@ -16,6 +16,7 @@ GitHub Pages serves the repo root, so the built site lives there: `index.html`, 
 | `scripts/legacy/` | The first steps that turned the guide into raw data. Kept for reference only. |
 | `tests/` | Playwright tests, the test server and the Docker image |
 | `tests/fixtures/` | Frozen copies of the share order and of links already shared. Never edit these to make a test pass. |
+| `.claude/agents/content-editor.md` | The content-editor agent, and `.claude/skills/update-site/` the `/update-site` command that runs it |
 | `firebase/firestore.rules` | The security rules for the synced watched lists. The site has no server, so these rules are its backend. |
 
 ## Building
@@ -87,6 +88,20 @@ docker compose run --rm dev npm run deploy:rules
 Run the tests first: the rules only go live after `npm run test:all` passes on them.
 
 On `localhost`, the page signs in and syncs through the Firebase emulator, so local testing never touches the real project. Add `?live` to the address to use the real project instead.
+
+## Updating the content with the content-editor agent
+
+`.claude/agents/content-editor.md` is a Claude Code agent, running on Claude Opus 5.5, that keeps the site's content current. It researches the latest Marvel release information, or makes the small text change you ask for, then rebuilds the page, runs the tests and opens a pull request.
+
+From a Claude Code session in this folder:
+
+- `/update-site fix the typo in Thor's story`: a small text change. Once the tests pass on GitHub, it merges on its own and goes live.
+- `/update-site add the release date for Blade`: research. It checks reliable sources and opens a pull request listing each fact and where it came from, for you to review and merge.
+- `/update-site`: a full refresh. It checks for every change since the footer's "Current as of" date and opens a pull request for review.
+
+To publish research without reviewing it, say so in the request, for example `/update-site add Blade's release date and publish it`. You can also call the agent by name, for example "use the content-editor agent to …", or with `@content-editor`.
+
+The agent only edits `src/data.json`, `src/charts.py` and the text in `src/template.html`. It never touches the sync code, the security rules or the tests, and it never pushes to `main` directly. Docker Desktop needs to be running, because it runs the tests before opening a pull request. The tests also check every entry's shape: the right fields and types, real dates, only the expected markup, no em or en dashes, and ids that exist.
 
 ## Rules that keep shared links working
 
