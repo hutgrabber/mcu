@@ -1,0 +1,10 @@
+rules_version = '2';
+
+// Placeholder until the real rules land: nobody can read or write anything.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
