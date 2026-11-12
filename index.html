@@ -1621,8 +1621,8 @@ function firstMerge(cloud, localIds, now){
 /* sync logic: end */
 
 /* ---------- syncing across devices ---------- */
-/* The Firebase project. This config is public by design: the security rules decide who can read and write what. */
-const FIREBASE = {apiKey: "", authDomain: "", projectId: "", appId: ""};
+/* The Firebase project, backend-mcu. This config is public by design: the security rules decide who can read and write what. */
+const FIREBASE = {apiKey: "AIzaSyCvtIaP4GTHBac2-yjPiDap-Yr69WKHubo", authDomain: "backend-mcu.firebaseapp.com", projectId: "backend-mcu", appId: "1:308617325401:web:9fff7aabd35924fb1a7a48"};
 const SDK = "https://www.gstatic.com/firebasejs/13.1.0/";
 /* On this machine, sign-in and the database are the local Firebase emulator, unless the address ends in ?live */
 const EMULATOR = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]live\b/.test(location.search);
