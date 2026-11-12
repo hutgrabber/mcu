@@ -49,4 +49,11 @@ export function shareCodec(){
   return { ...fns, watched };
 }
 
+/* Run in a page: notes whether the celebration ever shows from now on, since it hides itself again after a few seconds */
+export function watchCheer(){
+  const c = document.querySelector("#cheer");
+  window.cheered = c.classList.contains("show");
+  new MutationObserver(() => { if (c.classList.contains("show")) window.cheered = true; }).observe(c, { attributes: true });
+}
+
 export const stored = page => page.evaluate(k => JSON.parse(localStorage.getItem(k) || "[]"), STORE);

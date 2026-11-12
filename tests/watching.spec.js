@@ -49,9 +49,13 @@ test("Clear all asks twice, then can be undone", async ({ page }) => {
 });
 
 test("a list that was already complete doesn't celebrate when the page opens", async ({ page }) => {
+  await page.addInitScript(() => addEventListener("DOMContentLoaded", () => {
+    const c = document.querySelector("#cheer"); window.cheered = c.classList.contains("show");
+    new MutationObserver(() => { if (c.classList.contains("show")) window.cheered = true; }).observe(c, { attributes: true });
+  }, { capture: true }));
   await open(page, "/", { watched: PHASE1 });
   await page.waitForTimeout(1500);
-  await expect(page.locator("#cheer")).not.toHaveClass(/show/);
+  expect(await page.evaluate(() => window.cheered), "the celebration showed").toBe(false);
 });
 
 test("finishing a Phase celebrates", async ({ page }) => {
