@@ -4,7 +4,7 @@ Run it now and then, then rebuild:  python3 scripts/ratings.py && python3 src/bu
 It needs an OMDb key, read from the OMDB_API_KEY environment variable or a line OMDB_API_KEY=... in .env at the repo root.
 The key stays on this machine: visitors' browsers never call OMDb, they read the saved ratings from the page.
 
-Each title's IMDb id is in src/imdb.json. Every answer is checked against the site's own title and year before anything
+Each title's IMDb id is in src/imdb.json, with "omdbTitle" where OMDb's name for it differs from the site's. Every answer is checked against the site's own title and year before anything
 is saved, so a wrong id fails loudly instead of putting another film's score on the page. A season ("Loki, Season 1")
 gets the average IMDb rating of its episodes; Rotten Tomatoes scores for single seasons aren't available from OMDb."""
 import datetime, json, os, pathlib, re, sys, time, urllib.parse, urllib.request
@@ -70,7 +70,7 @@ def main():
             continue
         year = int(re.match(r"\d{4}", d.get("Year", "0")).group(0)) if re.match(r"\d{4}", d.get("Year", "")) else None
         wrong = []
-        if not same_title(base, d.get("Title", "")):
+        if not same_title(info.get("omdbTitle", base), d.get("Title", "")):
             wrong.append(f'title "{d.get("Title")}"')
         if "season" not in info and (year is None or abs(year - e["year"]) > 1):
             wrong.append(f'year {d.get("Year")}')

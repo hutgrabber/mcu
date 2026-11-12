@@ -160,7 +160,7 @@ share_order=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 1
 ratings_main=dict(key='ratings-main',chip='How the films were received',title='How every film was received',type='ratings',scope='main',
   intro="Every Marvel Studios film ranked by its IMDb rating or its Rotten Tomatoes Tomatometer. Switch between them to see where audiences and critics disagree.")
 ratings_shows=dict(key='ratings-shows',chip='How the shows were received',title='How every show was received',type='ratings',scope='shows',
-  intro="The shows ranked the same way. A single season gets the average IMDb rating of its episodes.")
+  intro="Every show ranked by its IMDb rating. A single season gets the average rating of its episodes. Rotten Tomatoes scores for shows aren't available here.")
 data=dict(phases=phases,routes=routes,soon=soon,share=share_order,story=dict(ids=story_ids,labels=story_labels),sections=dict(
   main=[dict(key='phases',chip='The Phases at a glance',title='The six Phases at a glance',type='ribbon',intro="Width shows how many films each Phase has. Tap a Phase to jump to it on the main line."),stones,storyc,ratings_main],
   spider=[spider],sony=[sony],shows=[wanda,street,loki,ratings_shows],xmen=[xmen],ff=[ff]))

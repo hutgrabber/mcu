@@ -1414,7 +1414,8 @@ function renderRatings(def, host){
   const pool = def.scope === "main" ? DATA.main : DATA.sections.find(s => s.id === def.scope).lanes.flatMap(l => l.ids);
   const keys = new Set(), ids = pool.filter(id => { const e = E[id], k = keyOf(e); if (e.alias || keys.has(k) || !isOut(e) || !ratingOf(id)) return false; keys.add(k); return true; });
   if (!ids.length){ host.append(el("p", "rank-empty", "Ratings appear here once they've been fetched.")); return {show(){}}; }
-  const hasRt = ids.some(id => ratingOf(id).rt != null);
+  /* ranking by Tomatometer only makes sense when most of the titles have one (OMDb has them for films, not shows) */
+  const hasRt = ids.filter(id => ratingOf(id).rt != null).length >= ids.length * 0.6;
   const seg = el("div", "seg rank-by"); seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Rank by");
   seg.append(el("span", "knob")); seg.querySelector(".knob").setAttribute("aria-hidden", "true");
   const by = [["imdb", "IMDb"]].concat(hasRt ? [["rt", "Tomatometer"]] : []);
@@ -1452,7 +1453,8 @@ function renderRatings(def, host){
     b.onclick = () => { if (key === k) return; key = k; $$("button", seg).forEach(x => x.setAttribute("aria-pressed", x === b)); syncSeg(seg); rank(true); };
     seg.append(b);
   });
-  host.append(seg, list, el("p", "d-rate-src", "From IMDb and Rotten Tomatoes, via OMDb, " + longDate(RATINGS.asOf) + ". Tap a title to open its story."));
+  if (by.length > 1) host.append(seg);   /* with only one kind of score, there's nothing to switch */
+  host.append(list, el("p", "d-rate-src", "From IMDb and Rotten Tomatoes, via OMDb, " + longDate(RATINGS.asOf) + ". Tap a title to open its story."));
   rank(false);
   return {show(){
     syncSeg(seg);
