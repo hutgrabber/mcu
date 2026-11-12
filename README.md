@@ -60,6 +60,6 @@ The icons come out pixel for pixel the same as the published ones. The preview c
 
 ## Rules that keep shared links working
 
-- **Never renumber, reorder or insert entries in `src/data.json`.** An entry's `id` is its position in the list. Add new titles at the end.
+- **Never renumber, reorder or insert entries in `src/data.json`.** An entry's `id` is its position in the list, and synced lists will store ids. Add new titles at the end.
 - **Only ever append to `share_order` in `src/charts.py`.** Share codes are written against that order, so any other change makes old links open the wrong list.
 - **Don't run `scripts/legacy/parse.py` over `src/data.json`.** The data was edited by hand after parsing, and those edits would be lost.

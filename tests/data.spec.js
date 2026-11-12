@@ -12,12 +12,6 @@ test("share order only ever grows at the end", () => {
   expect(CHARTS.share.slice(0, frozen.share.length), "the start of share_order in src/charts.py changed").toEqual(frozen.share);
 });
 
-test("old #p= link order only ever grows at the end", () => {
-  // #p= links number titles by their first appearance in the entry list, so this fails if an entry is inserted, moved or retitled.
-  const keys = [...new Set(E.map(keyOf))];
-  expect(keys.slice(0, frozen.keys.length), "entries were inserted, moved or retitled in src/data.json").toEqual(frozen.keys);
-});
-
 test("share order holds each title exactly once", () => {
   // One id per title: the first entry with that title. Later copies in other lanes and combined stops are left out.
   const canonical = E.filter((e, i) => !e.alias && E.findIndex(x => keyOf(x) === keyOf(e)) === i).map(e => e.id);

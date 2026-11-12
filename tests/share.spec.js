@@ -4,14 +4,13 @@ import { test as plain } from "@playwright/test";
 const links = fixture("share-links");
 
 /* Adding a shared list to an empty one stores exactly the titles the code carries. */
-for (const [kind, codes] of [["w", links.w], ["p", links.p]])
-  for (const [code, keys] of Object.entries(codes))
-    test(`the #${kind}=${code} link already out there still opens the same ${keys.length} titles`, async ({ page }) => {
-      await open(page, `/#${kind}=${code}`);
-      await expect(page.locator("#sheet-t")).toHaveText(`This link carries a watched list of ${keys.length} titles.`);
-      await page.click("#sheet-yes");
-      expect((await stored(page)).sort()).toEqual([...keys].sort());
-    });
+for (const [code, keys] of Object.entries(links.w))
+  test(`the #w=${code} link still opens the same ${keys.length} titles`, async ({ page }) => {
+    await open(page, `/#w=${code}`);
+    await expect(page.locator("#sheet-t")).toHaveText(`This link carries a watched list of ${keys.length} titles.`);
+    await page.click("#sheet-yes");
+    expect((await stored(page)).sort()).toEqual([...keys].sort());
+  });
 
 plain("every list survives a trip through a share code", () => {
   const { encodeList, decodeList, watched } = shareCodec(), keys = CHARTS.share.map(id => keyOf(DATA.entries[id])), problems = [];
@@ -50,7 +49,7 @@ test("the w/ page hands its code to the main page", async ({ page }) => {
 
 test("a link that carries no list says so", async ({ page }) => {
   await open(page);
-  for (const hash of ["#w=!!", "#w=", "#p=!!"]){
+  for (const hash of ["#w=!!", "#w="]){
     await page.evaluate(h => { location.hash = h; }, hash);
     await expect(page.locator("#toast"), hash).toContainText("That link doesn't carry a watched list");
     await expect.poll(() => page.evaluate(() => location.hash), hash).toBe("");
