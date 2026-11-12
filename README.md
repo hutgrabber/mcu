@@ -10,7 +10,8 @@ GitHub Pages serves the repo root, so the built site lives there: `index.html`, 
 | `src/template.html` | The page itself: styles, markup and script, with two placeholders, `/*DATA*/` and `/*CHARTS*/` |
 | `src/data.json` | Every title and its story text. Edit content here. |
 | `src/charts.py` | Phases, routes, the "Coming up" list, the share order and the section charts. Writes `src/charts.json`. |
-| `src/build.py` | Fills the template and writes `index.html` and `w/index.html` to the root |
+| `src/build.py` | Fills the template and writes `index.html`, `w/index.html` and the calendar files in `cal/` to the root |
+| `src/imdb.json`, `src/ratings.json` | Each title's IMDb id, and the ratings fetched by `scripts/ratings.py` |
 | `src/watch-guide.md` | The long-form guide the data first came from (current as of November 8, 2026) |
 | `scripts/assets.py` | Draws the icons, favicons and preview cards, and writes `site.webmanifest` |
 | `scripts/legacy/` | The first steps that turned the guide into raw data. Kept for reference only. |
@@ -102,6 +103,29 @@ From a Claude Code session in this folder:
 To publish research without reviewing it, say so in the request, for example `/update-site add Blade's release date and publish it`. You can also call the agent by name, for example "use the content-editor agent to …", or with `@content-editor`.
 
 The agent only edits `src/data.json`, `src/charts.py` and the text in `src/template.html`. It never touches the sync code, the security rules or the tests, and it never pushes to `main` directly. Docker Desktop needs to be running, because it runs the tests before opening a pull request. The tests also check every entry's shape: the right fields and types, real dates, only the expected markup, no em or en dashes, and ids that exist.
+
+## Ratings
+
+Cards, stories and the "How they were received" charts show each title's IMDb rating and Rotten Tomatoes Tomatometer. They come from [OMDb](https://www.omdbapi.com), fetched while building, so visitors' browsers never call it and the key never reaches the site.
+
+- `src/imdb.json` holds each title's IMDb id. A single season points at its series and names the season, and gets the average IMDb rating of its episodes.
+- `src/ratings.json` holds the saved ratings. Don't edit it by hand.
+
+To refresh them, put your free OMDb key in `.env` at the repo root (git ignores it) as `OMDB_API_KEY=yourkey`, then:
+
+```bash
+python3 scripts/ratings.py && python3 src/build.py
+```
+
+Every answer is checked against the site's own title, year and type before anything is saved, so a wrong id stops the script instead of showing another film's score. The free key allows 1,000 requests a day, and a refresh uses about 110. You can also ask the content agent: `/update-site refresh the ratings`.
+
+## Adding a release to a calendar
+
+"Add to calendar" in "Coming up" does what each device handles best. The build writes a calendar file for each dated release into `cal/`, and the page picks:
+
+- **iPhone and iPad:** opens that file, which iOS shows in Calendar's own "Add" sheet.
+- **Android and Chromebooks:** opens Google Calendar's new-event screen, filled in.
+- **Mac, Windows and Linux:** downloads the file for whatever calendar app the computer uses.
 
 ## Rules that keep shared links working
 
