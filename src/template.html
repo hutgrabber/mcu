@@ -149,6 +149,10 @@ kbd{font:inherit;font-size:12px;padding:0 5px;border-radius:5px;background:var(-
 .sec-head p{margin:8px 0 0;max-width:64ch;color:var(--muted);font-size:14.5px}
 .seg{position:relative;display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;background:var(--panel);border-radius:999px;padding:3px}
 .seg::-webkit-scrollbar{display:none}
+/* a picker wider than the screen fades at the edge that has more, so it reads as something to scroll */
+.seg.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent)}
+.seg.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px);mask-image:linear-gradient(90deg,transparent,#000 32px)}
+.seg.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
 .seg button{position:relative;z-index:1;white-space:nowrap;border:0;background:none;padding:6px 13px;border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);transition:color .3s}
 .seg button[aria-pressed="true"]{color:var(--ink)}
 .seg .knob{position:absolute;top:3px;bottom:3px;left:0;border-radius:999px;background:var(--text);transition:transform .4s var(--ease),width .4s var(--ease)}
@@ -417,6 +421,11 @@ body.nospoil .veil:not(.shown) > :not(.reveal){filter:blur(7px);user-select:none
 .sheet.open{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:0s}
 .sheet p{margin:0 0 10px;font-size:14px}
 .sheet div{display:flex;gap:8px;flex-wrap:wrap}
+/* no single word left alone on a line */
+h1,h2,h3{text-wrap:balance}
+p,.next-l,.sheet p{text-wrap:pretty}
+/* on the narrowest phones, buttons that wrap share their rows evenly instead of leaving one stranded */
+@media (max-width:360px){.sheet div .btn,#c-tabs button{flex:1 1 auto}}
 
 /* ---------- phase rings ---------- */
 .rings{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
@@ -477,8 +486,7 @@ body.nospoil .veil:not(.shown) > :not(.reveal){filter:blur(7px);user-select:none
   .b-row input:checked + .bx{animation:tick .4s var(--ease)}
 }
 /* theme switch: the new theme opens from the button */
-::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
-::view-transition-old(root){z-index:0} ::view-transition-new(root){z-index:1}
+.splash{position:fixed;z-index:50;border-radius:50%;pointer-events:none}
 html.vt body,html.vt .bar,html.vt .card,html.vt .dot,html.vt .ib,html.vt .btn,html.vt .chip,html.vt .node,html.vt .ph,html.vt .ring,html.vt .seg button,html.vt .nav a,html.vt .x,html.vt .knob,html.vt .pip{transition:none!important}
 
 @media (max-width:400px){.brand{gap:6px;font-size:14px} .logo{width:40px;height:21px} .tools{gap:4px}}
@@ -943,7 +951,13 @@ function syncSeg(seg){
   if (!on) return;
   knob.style.width = on.offsetWidth + "px"; knob.style.transform = "translateX(" + on.offsetLeft + "px)";
   if (seg.scrollWidth > seg.clientWidth + 2) seg.scrollLeft = Math.max(0, on.offsetLeft - (seg.clientWidth - on.offsetWidth) / 2);
+  segEdges(seg);
 }
+function segEdges(seg){
+  const max = seg.scrollWidth - seg.clientWidth;
+  seg.classList.toggle("more-l", seg.scrollLeft > 2); seg.classList.toggle("more-r", seg.scrollLeft < max - 2);
+}
+$$(".seg").forEach(seg => seg.addEventListener("scroll", () => segEdges(seg), {passive: true}));
 
 /* ---------- main line ---------- */
 let mainLane = null, mode = "films";
@@ -1391,18 +1405,30 @@ function openDrawer(list, idx, dir){
   syncWatchBtn();
   const wasOpen = drawer.classList.contains("open");
   drawer.classList.add("open"); scrim.classList.add("open"); drawer.setAttribute("aria-hidden", "false");
-  /* a story gets its own history entry, so the Back button (or back swipe) closes it instead of leaving the site */
-  try { if (!wasOpen && !(history.state && history.state.story)) history.pushState({story: 1}, "", "#t=" + slugOf(e)); else history.replaceState({story: 1}, "", "#t=" + slugOf(e)); } catch (err) {}
+  if (wasOpen){ try { history.replaceState({story: 1}, "", "#t=" + slugOf(e)); } catch (err) {} }
+  else overlayOpened({story: 1}, "#t=" + slugOf(e));
   if (!list.chart) centerOn(list, it.node);
   if (!wasOpen) $("#d-close").focus({preventScroll: true});
 }
-let skipPop = false;
+/* A story, the watched-list panel and the comparison each get one history entry while open,
+   so the Back button (or back swipe) closes them instead of leaving the site.
+   Closing one with its own button goes back over that entry, a moment later; if another opens straight away, it reuses the entry. */
+let skipPop = false, backSoon = false;
+function overlayOpened(state, url){
+  const reuse = backSoon || !!(history.state && (history.state.story || history.state.panel));
+  backSoon = false;
+  try { if (reuse) history.replaceState(state, "", url); else history.pushState(state, "", url); } catch (err) {}
+}
+function overlayClosed(){
+  backSoon = true;
+  queueMicrotask(() => { if (!backSoon) return; backSoon = false; skipPop = true; try { history.back(); } catch (err) { skipPop = false; } });
+}
 function closeDrawer(fromBack){
   if (!drawer.classList.contains("open")) return;
   drawer.classList.remove("open"); scrim.classList.remove("open"); drawer.setAttribute("aria-hidden", "true");
   if (cur) cur.list.items.forEach(x => x.node.classList.remove("current"));
   if (fromBack === true){ if (/^#t=/.test(location.hash)) setHash(""); }
-  else if (history.state && history.state.story){ skipPop = true; try { history.back(); } catch (err) { skipPop = false; setHash(""); } }
+  else if (history.state && history.state.story) overlayClosed();
   else setHash("");
   const it = cur && cur.list.items[cur.idx], fromList = lastFocus && lastFocus.closest && lastFocus.closest(".stop,.node");
   const back = it && fromList ? (it.node.matches("button") ? it.node : it.node.querySelector(".card")) : lastFocus;
@@ -1411,6 +1437,8 @@ function closeDrawer(fromBack){
 addEventListener("popstate", () => {
   if (skipPop){ skipPop = false; if (/^#t=/.test(location.hash)) setHash(""); return; }
   closeDrawer(true);
+  const here = history.state && history.state.panel;
+  panels.forEach(p => { if (p.isOpen() && p.name !== here) p.close(true); });
 });
 function syncActs(){
   const box = $("#d-acts");
@@ -1522,16 +1550,22 @@ function syncTheme(){
   themeBtn.title = light ? "Dark theme" : "Light theme";
   $('meta[name="theme-color"]').content = light ? "#F4F1FF" : "#1A1838";
 }
+/* Switching theme: a circle of the new background spreads from the button, the theme changes behind it, and the circle fades.
+   It moves as one solid shape, which stays smooth without a graphics card. The browser's own view transition redrew two
+   full-screen pictures of the page every frame and ran at 20 to 30 frames a second on a large screen. */
 themeBtn.onclick = () => {
+  if (root.classList.contains("vt")) return;
   const next = root.dataset.theme === "light" ? "dark" : "light";
   const apply = () => { root.dataset.theme = next; put("hut-mcu-helper-theme", next); prefChanged("theme", next); syncTheme(); };
-  if (!document.startViewTransition || reduced() || root.classList.contains("vt")){ apply(); return; }
-  const r = themeBtn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, far = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-  root.classList.add("vt");
-  const vt = document.startViewTransition(apply);
-  vt.ready.then(() => root.animate({clipPath: ["circle(0px at " + x + "px " + y + "px)", "circle(" + far + "px at " + x + "px " + y + "px)"]},
-    {duration: 560, easing: "cubic-bezier(.3,.7,.2,1)", pseudoElement: "::view-transition-new(root)"})).catch(() => {});
-  vt.finished.catch(() => {}).then(() => root.classList.remove("vt"));
+  if (reduced()){ apply(); return; }
+  const r = themeBtn.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const far = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
+  const c = el("div", "splash");
+  c.style.cssText = "left:" + (x - far) + "px;top:" + (y - far) + "px;width:" + 2 * far + "px;height:" + 2 * far + "px;background:" + (next === "light" ? "#F4F1FF" : "#1A1838");
+  root.classList.add("vt"); document.body.append(c);
+  c.animate({transform: ["scale(.001)", "scale(1)"]}, {duration: 380, easing: "cubic-bezier(.3,.7,.2,1)"}).finished.catch(() => {})
+    .then(() => { apply(); return c.animate({opacity: [1, 0]}, {duration: 260, easing: "ease-out", fill: "forwards"}).finished.catch(() => {}); })
+    .then(() => { c.remove(); root.classList.remove("vt"); });
 };
 matchMedia("(prefers-color-scheme: light)").addEventListener("change", ev => { if (!get("hut-mcu-helper-theme")){ root.dataset.theme = ev.matches ? "light" : "dark"; syncTheme(); } });
 syncTheme();
@@ -1846,16 +1880,19 @@ function trap(ev, node){
   if (ev.shiftKey && document.activeElement === f[0]){ ev.preventDefault(); f[f.length - 1].focus(); }
   else if (!ev.shiftKey && document.activeElement === f[f.length - 1]){ ev.preventDefault(); f[0].focus(); }
 }
+const panels = [];
 function sidePanel(node, onClose){
   let back = null;
   const api = {
+    name: node.id,
     isOpen: () => node.classList.contains("open"),
-    open(){ if (api.isOpen()) return; back = document.activeElement; if (back && back.closest && back.closest("#menu")) back = $("#more"); node.classList.add("open"); softScrim.classList.add("open"); node.setAttribute("aria-hidden", "false"); node.querySelector(".x").focus({preventScroll: true}); },
-    close(){ if (!api.isOpen()) return; node.classList.remove("open"); softScrim.classList.remove("open"); node.setAttribute("aria-hidden", "true"); if (onClose) onClose(); if (back && back.focus) back.focus({preventScroll: true}); }
+    open(fromHistory){ if (api.isOpen()) return; if (fromHistory !== true) overlayOpened({panel: node.id}, location.pathname + location.search + location.hash); back = document.activeElement; if (back && back.closest && back.closest("#menu")) back = $("#more"); node.classList.add("open"); softScrim.classList.add("open"); node.setAttribute("aria-hidden", "false"); node.querySelector(".x").focus({preventScroll: true}); },
+    close(fromBack){ if (!api.isOpen()) return; if (fromBack !== true && history.state && history.state.panel === node.id) overlayClosed(); node.classList.remove("open"); softScrim.classList.remove("open"); node.setAttribute("aria-hidden", "true"); if (onClose) onClose(); if (back && back.focus) back.focus({preventScroll: true}); }
   };
-  softScrim.addEventListener("click", api.close);
-  node.querySelector(".x").addEventListener("click", api.close);
+  softScrim.addEventListener("click", () => api.close());
+  node.querySelector(".x").addEventListener("click", () => api.close());
   document.addEventListener("keydown", ev => { if (!api.isOpen()) return; if (ev.key === "Escape" && !ev.defaultPrevented) api.close(); if (ev.key === "Tab") trap(ev, node); });
+  panels.push(api);
   return api;
 }
 

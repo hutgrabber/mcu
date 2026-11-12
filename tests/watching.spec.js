@@ -65,3 +65,34 @@ test("finishing a Phase celebrates", async ({ page }) => {
   await expect(page.locator("#cheer")).toHaveClass(/show/);
   await expect(page.locator("#cheer")).toContainText("Phase 1 complete");
 });
+
+test.describe("switching theme", () => {
+  const theme = page => page.evaluate(() => [document.documentElement.dataset.theme, localStorage.getItem("hut-mcu-helper-theme")]);
+
+  test("changes the theme, saves it, and tidies up after the animation", async ({ page }) => {
+    await open(page);
+    const [start] = await theme(page), other = start === "dark" ? "light" : "dark";
+    await page.click("#theme");
+    await expect.poll(() => theme(page)).toEqual([other, other]);
+    await expect(page.locator(".splash")).toHaveCount(0);
+    await expect(page.locator("html")).not.toHaveClass(/\bvt\b/);
+  });
+
+  test("a second press during the animation doesn't undo the first", async ({ page }) => {
+    await open(page);
+    const [start] = await theme(page), other = start === "dark" ? "light" : "dark";
+    await page.click("#theme"); await page.click("#theme");
+    await page.waitForTimeout(900);
+    expect(await theme(page)).toEqual([other, other]);
+  });
+
+  test("with reduced motion it switches straight away", async ({ browser, baseURL }) => {
+    const page = await browser.newPage({ baseURL, reducedMotion: "reduce" });
+    await open(page);
+    const [start] = await theme(page);
+    await page.click("#theme");
+    expect((await theme(page))[0]).not.toBe(start);
+    await expect(page.locator(".splash")).toHaveCount(0);
+    await page.close();
+  });
+});

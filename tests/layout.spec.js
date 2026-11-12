@@ -34,3 +34,22 @@ for (const [width, height] of SIZES)
         }
       });
     });
+
+test.describe("a picker wider than the screen", () => {
+  test.use({ viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true });
+
+  test("fades at whichever edge has more to scroll to", async ({ page }) => {
+    await open(page);
+    const route = page.locator("#route");
+    await expect(route).toHaveClass(/more-r/);
+    await expect(route).not.toHaveClass(/more-l/);
+    await route.evaluate(seg => { seg.scrollLeft = seg.scrollWidth; seg.dispatchEvent(new Event("scroll")); });
+    await expect(route).toHaveClass(/more-l/);
+    await expect(route).not.toHaveClass(/more-r/);
+  });
+});
+
+test("a picker that fits doesn't fade", async ({ page }) => {
+  await open(page);
+  await expect(page.locator("#mode")).not.toHaveClass(/more-[lr]/);
+});

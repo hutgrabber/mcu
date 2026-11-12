@@ -72,3 +72,50 @@ test("reduced motion shows every line straight away", async ({ browser, baseURL 
   await expect(page.locator(".lane.waiting")).toHaveCount(0);
   await page.close();
 });
+
+test.describe("Back closes the side panels too", () => {
+  const panel = (page, id) => page.locator("#" + id);
+
+  test("the watched-list panel", async ({ page }) => {
+    await open(page);
+    const depth = await page.evaluate(() => history.length);
+    await page.keyboard.press("w");
+    await expect(panel(page, "builder")).toHaveAttribute("aria-hidden", "false");
+    await page.goBack();
+    await expect(panel(page, "builder")).toHaveAttribute("aria-hidden", "true");
+    expect(await page.evaluate(() => history.length)).toBe(depth + 1);
+  });
+
+  test("the comparison", async ({ page }) => {
+    await open(page, "/#w=m");
+    await page.click("#sheet-cmp");
+    await expect(panel(page, "compare")).toHaveAttribute("aria-hidden", "false");
+    await page.goBack();
+    await expect(panel(page, "compare")).toHaveAttribute("aria-hidden", "true");
+    await expect(page.locator("#cmp")).toBeVisible();   // still comparing, just with the panel closed
+  });
+
+  test("closing a panel with its button leaves no extra step for Back", async ({ page }) => {
+    await open(page);
+    await page.keyboard.press("w");
+    await page.click("#b-close");
+    await expect(panel(page, "builder")).toHaveAttribute("aria-hidden", "true");
+    await expect.poll(() => page.evaluate(() => history.state)).toBeNull();
+    await page.keyboard.press("w");
+    await page.goBack();
+    await expect(panel(page, "builder")).toHaveAttribute("aria-hidden", "true");
+    await expect.poll(() => page.evaluate(() => history.state)).toBeNull();
+  });
+
+  test("a story opened from the comparison takes its place, so one Back closes it", async ({ page }) => {
+    await open(page, "/#w=m");
+    await page.click("#sheet-cmp");
+    await page.locator("#c-next button").click();
+    await expect(page.locator("#drawer")).toHaveClass(/open/);
+    await expect(panel(page, "compare")).toHaveAttribute("aria-hidden", "true");
+    await page.goBack();
+    await expect(page.locator("#drawer")).not.toHaveClass(/open/);
+    await expect(panel(page, "compare")).toHaveAttribute("aria-hidden", "true");
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe("");
+  });
+});
