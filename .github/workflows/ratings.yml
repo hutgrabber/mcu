@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "0 7 * * 1"   # Mondays at 07:00 UTC
   workflow_dispatch:
+  push:                   # and straight after a change to how ratings are fetched, such as a new title's IMDb id
+    branches: [main]
+    paths: [scripts/ratings.py, src/imdb.json, .github/workflows/ratings.yml]
 permissions:
   contents: write   # push the temporary branch, then main
   actions: write    # start the Tests workflow and read its result

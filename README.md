@@ -117,7 +117,7 @@ To refresh them, put your free OMDb key in `.env` at the repo root (git ignores 
 python3 scripts/ratings.py && python3 src/build.py
 ```
 
-**They refresh on their own every Monday.** `.github/workflows/ratings.yml` runs the script on GitHub with the key stored as the repository secret `OMDB_API_KEY`, rebuilds the page, runs the full test suite on a temporary branch, and moves `main` to it only if every test passes. To refresh straight away, open the repo's **Actions** tab, choose **Refresh ratings**, then **Run workflow**. If it fails, for example because a title's IMDb id no longer matches, GitHub emails you and the site keeps its last ratings.
+**They refresh on their own every Monday**, and straight after a change to `scripts/ratings.py`, `src/imdb.json` or the workflow reaches `main`. `.github/workflows/ratings.yml` runs the script on GitHub with the key stored as the repository secret `OMDB_API_KEY`, rebuilds the page, runs the full test suite on a temporary branch, and moves `main` to it only if every test passes. To refresh straight away, open the repo's **Actions** tab, choose **Refresh ratings**, then **Run workflow**. If it fails, for example because a title's IMDb id no longer matches, GitHub emails you and the site keeps its last ratings.
 
 Every answer is checked against the site's own title, year and type before anything is saved, so a wrong id stops the script instead of showing another film's score. The free key allows 1,000 requests a day, and a refresh uses about 110. You can also ask the content agent: `/update-site refresh the ratings`.
 
