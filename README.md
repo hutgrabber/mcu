@@ -15,7 +15,7 @@ GitHub Pages serves the repo root, so the built site lives there: `index.html`, 
 | `scripts/assets.py` | Draws the icons, favicons and preview cards, and writes `site.webmanifest` |
 | `scripts/legacy/` | The first steps that turned the guide into raw data. Kept for reference only. |
 | `tests/` | Playwright tests, the test server and the Docker image |
-| `tests/legacy/` | The test scripts from the chat sessions, still to be ported |
+| `tests/fixtures/` | Frozen copies of the share order and of links already shared. Never edit these to make a test pass. |
 | `firebase/` | Firestore security rules |
 
 ## Building
@@ -42,7 +42,7 @@ Everything else runs in Docker, so only Docker Desktop is needed on the Mac. The
 docker compose run --rm dev npm test
 ```
 
-That checks the build is current and runs the Playwright tests against a local copy of the site. To run them against the Firebase emulator too:
+That checks the build is current and runs the Playwright tests against a local copy of the site: the rules for ids and share order, share links old and new, comparing, Undo, story drawers and Back, search, celebrations, and every screen size from 320 pixels wide to 1920 in both themes. To run them against the Firebase emulator too:
 
 ```bash
 docker compose run --rm dev npm run test:all
