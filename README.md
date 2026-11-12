@@ -14,7 +14,9 @@ GitHub Pages serves the repo root, so the built site lives there: `index.html`, 
 | `src/watch-guide.md` | The long-form guide the data first came from (current as of November 8, 2026) |
 | `scripts/assets.py` | Draws the icons, favicons and preview cards, and writes `site.webmanifest` |
 | `scripts/legacy/` | The first steps that turned the guide into raw data. Kept for reference only. |
+| `tests/` | Playwright tests, the test server and the Docker image |
 | `tests/legacy/` | The test scripts from the chat sessions, still to be ported |
+| `firebase/` | Firestore security rules |
 
 ## Building
 
@@ -31,6 +33,30 @@ python3 src/build.py --check
 ```
 
 Commit the source change and the rebuilt `index.html` together.
+
+## Testing and other tools
+
+Everything else runs in Docker, so only Docker Desktop is needed on the Mac. The first run builds the image and installs the test tools into a Docker volume, which takes a few minutes.
+
+```bash
+docker compose run --rm dev npm test
+```
+
+That checks the build is current and runs the Playwright tests against a local copy of the site. To run them against the Firebase emulator too:
+
+```bash
+docker compose run --rm dev npm run test:all
+```
+
+The emulator uses the project id `demo-mcu`, which Firebase treats as offline only, so tests can never touch the real project.
+
+To redraw the icons and preview cards after changing `scripts/assets.py`:
+
+```bash
+docker compose run --rm dev npm run assets
+```
+
+The icons come out pixel for pixel the same as the published ones. The preview cards don't: Google Fonts renders the text slightly narrower than the font files the chat sandbox used, which moves one line break on `og-list.png`. Check both cards by eye before committing new ones.
 
 ## Rules that keep shared links working
 
