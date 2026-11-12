@@ -57,3 +57,18 @@ export function watchCheer(){
 }
 
 export const stored = page => page.evaluate(k => JSON.parse(localStorage.getItem(k) || "[]"), STORE);
+
+/* Swaps a known set of ratings into the page, so tests don't depend on the real ones */
+export async function withRatings(page, ratings){
+  await page.route(url => url.pathname === "/" || url.pathname === "/index.html", async route => {
+    const res = await route.fetch(), html = await res.text();
+    await route.fulfill({ response: res, body: html.replace(/const RATINGS = \{.*?\};/, "const RATINGS = " + JSON.stringify(ratings) + ";") });
+  });
+}
+/* The widest ratings possible on every released title, for layout checks */
+export function fullRatings(){
+  const titles = {};
+  for (const id of CHARTS.share){ const e = DATA.entries[id]; if (!e.upcoming && e.date <= TODAY.toISOString().slice(0, 10)) titles[id] = /, Season \d+$/.test(e.title) ? {imdb: 10, eps: 12} : {imdb: 10, votes: 2500000, rt: 100}; }
+  return {asOf: "2026-11-12", source: "OMDb", titles};
+}
+

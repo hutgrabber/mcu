@@ -1,5 +1,5 @@
 // Every screen size from phones to wide monitors, in both themes: nothing scrolls sideways and no card is cut off.
-import { test, expect, open } from "./helpers.js";
+import { test, expect, open, withRatings, fullRatings } from "./helpers.js";
 
 const SIZES = [[320, 568], [375, 667], [390, 844], [844, 390], [768, 1024], [1024, 768], [1440, 900], [1920, 1080]];
 const phone = (w, h) => Math.min(w, h) < 768;
@@ -10,7 +10,9 @@ for (const [width, height] of SIZES)
       test.use({ viewport: { width, height }, colorScheme: theme, isMobile: phone(width, height), hasTouch: phone(width, height) });
 
       test("nothing overflows or gets clipped", async ({ page }) => {
+        await withRatings(page, fullRatings());   // the widest ratings on every card
         await open(page, "/", { all: true });
+        await expect(page.locator(".sc").first()).toBeAttached();
         expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
         const sideways = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(await sideways(), "page scrolls sideways").toBe(0);

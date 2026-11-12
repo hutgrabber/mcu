@@ -1,12 +1,13 @@
-"""Builds the published page: src/template.html + src/data.json + src/charts.json -> index.html, and writes w/index.html.
+"""Builds the published page: src/template.html + src/data.json + src/charts.json + src/ratings.json -> index.html, and writes w/index.html.
 Run from anywhere: python3 src/build.py. With --check it writes nothing and fails if the committed files are out of date."""
 import pathlib, sys
 SRC=pathlib.Path(__file__).resolve().parent; ROOT=SRC.parent
 t=(SRC/'template.html').read_text()
 d=(SRC/'data.json').read_text().replace('</','<\\/')
 c=(SRC/'charts.json').read_text().replace('</','<\\/')
-assert t.count('/*DATA*/')==1 and t.count('/*CHARTS*/')==1
-out=t.replace('/*DATA*/',d).replace('/*CHARTS*/',c)
+r=(SRC/'ratings.json').read_text().strip().replace('</','<\\/')
+assert t.count('/*DATA*/')==1 and t.count('/*CHARTS*/')==1 and t.count('/*RATINGS*/')==1
+out=t.replace('/*DATA*/',d).replace('/*CHARTS*/',c).replace('/*RATINGS*/',r)
 stub='''<!DOCTYPE html>
 <html lang="en">
 <head>
