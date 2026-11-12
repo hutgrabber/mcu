@@ -13,6 +13,16 @@ test("Mark as watched on the up-next card, then undo", async ({ page }) => {
   await expect(page.locator("#next-t")).toHaveText(first);
 });
 
+test("a tap straight after the page opens still counts", async ({ browser, baseURL }) => {
+  // Holding the page's own timer at 100 milliseconds makes this tap land in its first half-second every time.
+  const page = await browser.newPage({ baseURL });
+  await page.addInitScript(() => { performance.now = () => 100; });
+  await open(page);
+  await page.click("#next-done");
+  expect(await stored(page)).toHaveLength(1);
+  await page.close();
+});
+
 test("Undo reverses only its own change, keeping later ticks and earlier ones", async ({ page }) => {
   await open(page, "/", { watched: ["ironman|2008"] });
   await page.keyboard.press("w");
