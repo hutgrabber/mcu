@@ -723,7 +723,6 @@ let watched = new Set();
 try { watched = new Set(JSON.parse(get(STORE) || "[]")); } catch (e) {}
 const save = () => put(STORE, JSON.stringify([...watched]));
 let hideSpoilers = get("hut-mcu-helper-spoilers") === "1";
-const KEYS = [...new Set(E.map(keyOf))];   /* order used by the old, longer #p= links; kept so they still open */
 const ORDER = CHARTS.share;                 /* order used by share codes; new titles are only ever added at the end */
 let live = false;                           /* false while the page is first drawn, so nothing celebrates or flashes on load */
 let friend = null;                          /* a shared list being compared with yours (this visit only) */
@@ -1533,20 +1532,8 @@ function setTuck(on){
 }
 tuck.onclick = () => { const on = !document.body.classList.contains("tuck"); setTuck(on); toast(on ? "Watched stops are tucked away. Tap a dot to open one." : "Watched stops are back"); };
 if (get("hut-mcu-helper-tuck") === "1") setTuck(true);
-function encodeProgress(){
-  const bytes = new Uint8Array(Math.ceil(KEYS.length / 8));
-  KEYS.forEach((k, i) => { if (watched.has(k)) bytes[i >> 3] |= 1 << (i & 7); });
-  return btoa(String.fromCharCode.apply(null, bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function decodeProgress(s){
-  try {
-    const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/")), out = [];
-    KEYS.forEach((k, i) => { if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) out.push(k); });
-    return out;
-  } catch (e) { return null; }
-}
 /* Share codes. Most lists are a few long runs ("everything up to Endgame"), so the code stores run lengths, one character each.
-   A list too scattered for that falls back to six titles per character. Either way it is far shorter than the old #p= form. */
+   A list too scattered for that falls back to six titles per character. */
 const A62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", A64 = A62 + "-_";
 function encodeList(){
   const bits = ORDER.map(id => watched.has(keyOf(E[id]))), last = bits.lastIndexOf(true);
@@ -1886,9 +1873,9 @@ if (matchMedia("(hover:hover) and (pointer:fine)").matches && !reduced()){
 }
 
 function fromLink(){
-  const h = location.hash, m = h.match(/^#([tpw])=([\w-]+)$/);
+  const h = location.hash, m = h.match(/^#([tw])=([\w-]+)$/);
   if (!m){
-    if (/^#[tpw]=/.test(h)){ setHash(""); if (h[1] !== "t") toast("That link doesn't carry a watched list"); }
+    if (/^#[tw]=/.test(h)){ setHash(""); if (h[1] !== "t") toast("That link doesn't carry a watched list"); }
     return;
   }
   if (m[1] === "t"){
@@ -1896,7 +1883,7 @@ function fromLink(){
     if (e) setTimeout(() => openEntry(e.id), 300); else setHash("");
     return;
   }
-  const keys = m[1] === "w" ? decodeList(m[2]) : decodeProgress(m[2]);
+  const keys = decodeList(m[2]);
   setHash("");
   if (!keys || !keys.length){ toast("That link doesn't carry a watched list"); return; }
   setTimeout(() => offerList(keys), 700);
